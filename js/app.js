@@ -193,6 +193,7 @@
 
     let finished = false;
     s.mode.render(body, q, {
+      theme: s.theme,
       onKey(fn) { keyHandler = fn; },
       finish(grade) {
         if (finished) return;
@@ -284,6 +285,22 @@
         h('div', { class: 'card list' }, resets)));
   }
 
+  // 外部の AI チャットに渡す。スマホは共有シート（各 AI アプリを選べる）、PC はクリップボードへコピー
+  async function shareToAI(text, button) {
+    try {
+      if (navigator.share && matchMedia('(hover: none)').matches) {
+        await navigator.share({ text });
+        return;
+      }
+      await navigator.clipboard.writeText(text);
+      const label = button.textContent;
+      button.textContent = 'コピーしました。AI チャットに貼り付けて質問してください';
+      setTimeout(() => { button.textContent = label; }, 2500);
+    } catch (e) {
+      if (e.name !== 'AbortError') alert('コピーに失敗しました: ' + e.message);
+    }
+  }
+
   S.start = renderHome;
-  S.ui = { h };
+  S.ui = { h, shareToAI };
 })();

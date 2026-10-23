@@ -51,6 +51,8 @@ StudyApp.registerMode({
       feedback.className = 'feedback ' + (correct ? 'ok' : 'ng');
       feedback.append(h('div', { class: 'feedback-title' }, correct ? '正解' : '不正解'));
       if (q.point) feedback.append(h('div', { class: 'feedback-point' }, h('span', { class: 'point-label' }, 'ポイント'), h('span', { html: format(q.point) })));
+      const askBtn = h('button', { class: 'btn small-btn', onclick: () => StudyApp.ui.shareToAI(buildPrompt(chosen), askBtn) }, 'AI に質問する');
+      feedback.append(h('div', { class: 'feedback-actions' }, askBtn));
 
       const buttons = correct
         ? [h('button', { class: 'btn primary', onclick: () => api.finish('confident') }, '確信あり', h('kbd', null, 'Enter')),
@@ -65,6 +67,33 @@ StudyApp.registerMode({
         if (e.key === 'Enter') { e.preventDefault(); api.finish(correct ? 'confident' : 'wrong'); }
         else if (correct && (e.key === 'm' || e.key === 'M')) api.finish('unsure');
       });
+    }
+
+    // 表示した順の記号で組み立て、利用者が見た画面と一致させる
+    function buildPrompt(chosen) {
+      const line = (it) => LABELS[items.indexOf(it)] + '. ' + q.choices[it.ci];
+      const correctItem = items.find((it) => it.ci === q.answer);
+      return [
+        '学習アプリ「' + api.theme.title + '」の4択問題について質問があります。',
+        '',
+        '【問題】',
+        q.question,
+        '',
+        '【選択肢】',
+        ...items.map(line),
+        '',
+        '【正解】' + line(correctItem),
+        '【私の回答】' + line(chosen) + (chosen === correctItem ? '（正解）' : '（不正解）'),
+        '',
+        '【解説】',
+        ...items.map((it) => LABELS[items.indexOf(it)] + ': ' + ((q.explanations || [])[it.ci] || '')),
+        q.point ? '\n【ポイント】' + q.point : '',
+        '',
+        '解説を繰り返すのではなく、私の理解の穴を見つけるように問いかけを交えて、実務での具体例とともに答えてください。',
+        '',
+        '【質問】',
+        '',
+      ].join('\n');
     }
 
     api.onKey((e) => {

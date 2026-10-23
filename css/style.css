@@ -270,6 +270,8 @@ code {
 .feedback.ok .feedback-title { color: var(--ok); }
 .feedback.ng .feedback-title { color: var(--ng); }
 .feedback-point { margin-top: 6px; }
+.feedback-actions { margin-top: 12px; }
+.small-btn { min-height: 40px; padding: 6px 14px; font-size: .88rem; font-weight: 500; }
 .point-label {
   display: inline-block;
   font-size: .75rem;

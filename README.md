@@ -62,7 +62,9 @@ StudyApp.registerMode({
   supports: (q) => q.type === 'truefalse',  // この方法で出題できる問題か
   render(el, q, api) {
     // el に問題を描画する。StudyApp.ui.h / StudyApp.util.format が使える
+    // api.theme          出題中のテーマ
     // api.onKey(fn)      キーボード操作のハンドラを登録
+    // StudyApp.ui.shareToAI(text, button)  外部 AI チャットへ渡す（スマホは共有シート、PC はコピー）
     // api.finish(grade)  回答完了。grade は 'confident' | 'unsure' | 'wrong'
   },
 });
