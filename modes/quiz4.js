@@ -1,7 +1,9 @@
 // 学習方法プラグイン: 4択問題
 StudyApp.registerMode({
   id: 'quiz4',
-  title: '4択問題',
+  title: '4択',
+  level: 1,
+  gradeLabels: { confident: '確信して正解', unsure: '迷って正解', wrong: '不正解' },
   supports: (q) => q.type === 'choice' && Array.isArray(q.choices) && q.choices.length === 4,
 
   render(el, q, api) {

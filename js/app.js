@@ -21,7 +21,7 @@
       else if (k === 'class') el.className = v;
       else el.setAttribute(k, v);
     }
-    for (const c of children.flat()) {
+    for (const c of children.flat(Infinity)) {
       if (c == null || c === false) continue;
       el.append(c instanceof Node ? c : document.createTextNode(c));
     }
@@ -65,14 +65,15 @@
     const cards = list.map((theme) => {
       const mode = currentMode(theme);
       const st = mode ? S.themeStats(theme, mode) : null;
+      const { level } = S.themeLevel(theme);
       return h('button', { class: 'card theme-card', onclick: () => renderTheme(theme) },
-        h('div', { class: 'theme-badge', style: 'background:' + themeColor(theme) }, theme.title.slice(0, 1)),
+        h('div', { class: 'theme-badge', style: 'background:' + themeColor(theme) }, 'Lv' + level),
         h('div', { class: 'theme-body' },
           h('div', { class: 'theme-title' }, theme.title),
           theme.description ? h('div', { class: 'muted small' }, theme.description) : null,
           st ? h('div', { class: 'theme-progress' },
             bar(st.mastered, st.total),
-            h('span', { class: 'small muted' }, '習得 ' + st.mastered + '/' + st.total),
+            h('span', { class: 'small muted' }, mode.title + ' 習得 ' + st.mastered + '/' + st.total),
             st.due ? h('span', { class: 'pill warn' }, '復習 ' + st.due) : null,
             st.fresh === st.total ? h('span', { class: 'pill' }, '未学習') : null) : null));
     });
@@ -96,6 +97,7 @@
     return h('details', { class: 'card note' },
       h('summary', null, 'このアプリに組み込んでいる学習法'),
       h('ul', null,
+        h('li', null, h('strong', null, 'レベル'), ' Lv1 知っている（4択）→ Lv2 説明できる（説明）→ Lv3〜5 使える・判断できる・設計できる（実践課題）。問題の習得は80%で達成。'),
         h('li', null, h('strong', null, '想起練習'), ' 読むより「思い出す」方が記憶に残る。解説を見る前に必ず自分で答えを選ぶ。'),
         h('li', null, h('strong', null, '間隔反復'), ' 正解した問題は 1→3→7→14→30→60日と間隔を空けて再出題。間違えた問題は翌日以降すぐ戻ってくる。'),
         h('li', null, h('strong', null, '確信度の自己評価'), ' 正解でも「迷った」なら定着扱いにしない。まぐれ当たりを放置しない。'),
@@ -146,10 +148,31 @@
         h('span', { class: 'chev' }, '›'));
     });
 
+    const practiceGroups = S.LEVEL_NAMES.map((name, i) => {
+      const items = (theme.practices || []).filter((p) => p.level === i + 1);
+      if (!items.length) return null;
+      return [
+        h('div', { class: 'practice-level' }, 'Lv' + (i + 1) + ' ' + name),
+        items.map((p) => {
+          const done = S.isPracticeDone(theme.id, p.id);
+          return h('button', { class: 'row practice' + (done ? ' done' : ''), 'aria-pressed': String(done), onclick: () => {
+            const y = window.scrollY;
+            S.togglePractice(theme.id, p.id);
+            renderTheme(theme);
+            window.scrollTo(0, y);
+          } },
+            h('span', { class: 'check' }, done ? '✓' : ''),
+            h('div', { class: 'row-main' }, h('div', null, p.title), p.detail ? h('div', { class: 'small muted' }, p.detail) : null));
+        }),
+      ];
+    });
+
     show(
       header(theme.title, renderHome),
       h('main', { class: 'container' },
         theme.description ? h('p', { class: 'muted' }, theme.description) : null,
+        levelCard(theme),
+        h('h2', { class: 'section-title' }, mode.title + 'の学習'),
         h('section', { class: 'stats-row four' },
           stat(st.mastered, '習得'), stat(st.learning, '学習中'), stat(st.fresh, '未学習'), stat(st.due, '復習待ち')),
         modes.length > 1 ? h('div', { class: 'segmented' }, modes.map((m) =>
@@ -157,7 +180,27 @@
         h('div', { class: 'stack' }, actions),
         h('h2', { class: 'section-title' }, 'カテゴリ別'),
         h('div', { class: 'card list' }, cats),
+        theme.practices ? h('h2', { class: 'section-title' }, '実践課題') : null,
+        theme.practices ? h('p', { class: 'small muted' }, '実際の作業でやり遂げたらチェック。知識を「使える」に変えるのはこの段階です。') : null,
+        theme.practices ? h('div', { class: 'card list' }, practiceGroups) : null,
         theme.tips ? h('details', { class: 'card note' }, h('summary', null, 'このテーマの学び方'), h('p', { html: format(theme.tips) })) : null));
+  }
+
+  function levelCard(theme) {
+    const { level, next } = S.themeLevel(theme);
+    return h('section', { class: 'card level-card' },
+      h('div', { class: 'level-head' },
+        h('span', { class: 'level-badge', style: 'background:' + themeColor(theme) }, 'Lv' + level),
+        h('div', null,
+          h('div', { class: 'small muted' }, '現在のレベル'),
+          h('div', { class: 'level-name' }, level ? S.LEVEL_NAMES[level - 1] : 'これから'))),
+      next && next.reqs.length ? h('div', { class: 'level-next' },
+        h('div', { class: 'small muted' }, '次: Lv' + next.level + ' ' + S.LEVEL_NAMES[next.level - 1]),
+        next.reqs.map((r) => h('div', { class: 'row-meta' },
+          h('span', { class: 'small req-label' }, r.label),
+          bar(r.done, r.target),
+          h('span', { class: 'small muted' }, Math.min(r.done, r.target) + '/' + r.target)))) : null,
+      !next ? h('div', { class: 'small muted level-next' }, 'すべてのレベルを達成しました。') : null);
   }
 
   // ---- 学習セッション ----
@@ -198,7 +241,7 @@
       finish(grade) {
         if (finished) return;
         finished = true;
-        S.record(s.theme.id, q.id, grade);
+        S.record(s.theme.id, s.mode.id, q.id, grade);
         if (!s.first.has(q.id)) s.first.set(q.id, grade);
         // 間違えた問題は数問後に1回だけ再出題する
         if (grade === 'wrong' && !s.retried.has(q.id)) {
@@ -221,17 +264,18 @@
     const review = firsts.filter(([, g]) => g !== 'confident')
       .map(([id, g]) => ({ q: s.theme.questions.find((x) => x.id === id), g }));
     const hasMore = S.buildSession(s.theme, s.mode, 'recommended').length > 0;
+    const labels = Object.assign({ confident: '確信あり', unsure: '迷った', wrong: '不正解' }, s.mode.gradeLabels);
 
     show(
       header('結果', () => renderTheme(s.theme)),
       h('main', { class: 'container' },
         h('section', { class: 'card result-hero' },
           h('div', { class: 'result-score' }, pct + '%'),
-          h('div', { class: 'muted' }, '初回正答率（' + (confident + unsure) + '/' + total + '）'),
+          h('div', { class: 'muted' }, s.mode.title + ' / 初回の達成率（' + (confident + unsure) + '/' + total + '）'),
           h('div', { class: 'result-breakdown' },
-            h('span', { class: 'pill ok' }, '確信して正解 ' + confident),
-            h('span', { class: 'pill warn' }, '迷って正解 ' + unsure),
-            h('span', { class: 'pill ng' }, '不正解 ' + wrong))),
+            h('span', { class: 'pill ok' }, labels.confident + ' ' + confident),
+            h('span', { class: 'pill warn' }, labels.unsure + ' ' + unsure),
+            h('span', { class: 'pill ng' }, labels.wrong + ' ' + wrong))),
         review.length ? h('h2', { class: 'section-title' }, '要点の振り返り') : null,
         review.length ? h('div', { class: 'stack' }, review.map(({ q, g }) =>
           h('div', { class: 'card review-item ' + (g === 'wrong' ? 'ng' : 'warn') },

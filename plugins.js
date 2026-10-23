@@ -3,6 +3,7 @@
 StudyApp.boot({
   modes: [
     'modes/quiz4.js',
+    'modes/explain.js',
   ],
   themes: [
     'themes/harness-design.js',

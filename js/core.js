@@ -1,4 +1,4 @@
-// プラグイン登録・学習記録の保存・間隔反復（SRS）・出題選定を担うコア。UI は持たない。
+// プラグイン登録・学習記録の保存・間隔反復（SRS）・出題選定・レベル判定を担うコア。UI は持たない。
 (function () {
   'use strict';
 
@@ -8,6 +8,9 @@
   const MASTERED_BOX = 4;
   const STORAGE_KEY = 'studyapp:v1';
   const SESSION_SIZE = 10;
+  // レベル n の達成条件: level=n の学習方法で MASTERY_RATIO 以上を習得し、level=n の実践課題をすべて完了
+  const LEVEL_NAMES = ['知っている', '説明できる', '使える', '判断できる', '設計・改善できる'];
+  const MASTERY_RATIO = 0.8;
 
   const themes = new Map();
   const modes = new Map();
@@ -44,12 +47,15 @@
   }
 
   // ---- 永続化 ----
-  function emptyData() { return { version: 1, cards: {}, activity: {}, prefs: {} }; }
+  function emptyData() { return { version: 2, cards: {}, practice: {}, activity: {}, prefs: {} }; }
 
   function load() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) return Object.assign(emptyData(), JSON.parse(raw));
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed.version === 2) return Object.assign(emptyData(), parsed);
+      }
     } catch (e) { console.error(e); }
     return emptyData();
   }
@@ -64,13 +70,14 @@
 
   function importData(text) {
     const parsed = JSON.parse(text);
-    if (!parsed || typeof parsed.cards !== 'object') throw new Error('バックアップ形式ではありません');
+    if (!parsed || parsed.version !== 2 || typeof parsed.cards !== 'object') throw new Error('対応していないバックアップ形式です');
     data = Object.assign(emptyData(), parsed);
     save();
   }
 
   function resetTheme(themeId) {
-    delete data.cards[themeId];
+    for (const key of Object.keys(data.cards)) if (key.startsWith(themeId + '/')) delete data.cards[key];
+    delete data.practice[themeId];
     save();
   }
 
@@ -84,13 +91,15 @@
     return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
   }
 
-  // ---- 学習記録と SRS ----
-  function getCard(themeId, qid) { return (data.cards[themeId] || {})[qid] || null; }
+  // ---- 学習記録と SRS（学習方法ごとに別々に記録する） ----
+  function deck(themeId, modeId) { return themeId + '/' + modeId; }
+  function getCard(themeId, modeId, qid) { return (data.cards[deck(themeId, modeId)] || {})[qid] || null; }
 
   // grade: 'confident'（確信して正解）| 'unsure'（迷って正解）| 'wrong'（不正解）
-  function record(themeId, qid, grade) {
+  function record(themeId, modeId, qid, grade) {
     const now = Date.now();
-    const cards = data.cards[themeId] || (data.cards[themeId] = {});
+    const key = deck(themeId, modeId);
+    const cards = data.cards[key] || (data.cards[key] = {});
     const c = cards[qid] || { box: 0, due: 0, correct: 0, wrong: 0 };
     if (grade === 'wrong') {
       c.box = 0;
@@ -120,7 +129,7 @@
     const now = Date.now();
     const stats = { total: 0, fresh: 0, learning: 0, mastered: 0, due: 0, weak: 0, byCategory: {} };
     for (const q of questionsFor(theme, mode)) {
-      const c = getCard(theme.id, q.id);
+      const c = getCard(theme.id, mode.id, q.id);
       const cat = stats.byCategory[q.category] || (stats.byCategory[q.category] = { total: 0, mastered: 0, seen: 0 });
       stats.total++;
       cat.total++;
@@ -136,7 +145,7 @@
   // kind: 'recommended' | 'weak' | 'category' | 'ahead'（復習期限前の先取り）
   function buildSession(theme, mode, kind, category) {
     const now = Date.now();
-    const pool = questionsFor(theme, mode, category).map((q) => ({ q, c: getCard(theme.id, q.id) }));
+    const pool = questionsFor(theme, mode, category).map((q) => ({ q, c: getCard(theme.id, mode.id, q.id) }));
     const byDue = (a, b) => a.c.due - b.c.due;
     const due = pool.filter((x) => isDue(x.c, now)).sort(byDue);
     // 新規は定義順（テーマ作者が基礎→応用の順に並べる前提）
@@ -154,6 +163,39 @@
     }
     // 交互練習（interleaving）: 選んだ問題の順番は混ぜる
     return shuffle(picked.slice(0, SESSION_SIZE).map((x) => x.q));
+  }
+
+  // ---- 実践課題 ----
+  function isPracticeDone(themeId, id) { return !!(data.practice[themeId] || {})[id]; }
+
+  function togglePractice(themeId, id) {
+    const p = data.practice[themeId] || (data.practice[themeId] = {});
+    if (p[id]) delete p[id]; else p[id] = Date.now();
+    save();
+  }
+
+  // ---- レベル ----
+  function levelRequirements(theme, level) {
+    const reqs = [];
+    for (const m of modes.values()) {
+      if (m.level !== level) continue;
+      const st = themeStats(theme, m);
+      if (st.total) reqs.push({ label: m.title + 'で習得', done: st.mastered, target: Math.ceil(st.total * MASTERY_RATIO) });
+    }
+    const items = (theme.practices || []).filter((p) => p.level === level);
+    if (items.length) reqs.push({ label: '実践課題', done: items.filter((p) => isPracticeDone(theme.id, p.id)).length, target: items.length });
+    return reqs;
+  }
+
+  // 下のレベルから順に条件を満たした所までを現在のレベルとする
+  function themeLevel(theme) {
+    let level = 0;
+    for (let n = 1; n <= LEVEL_NAMES.length; n++) {
+      const reqs = levelRequirements(theme, n);
+      if (!reqs.length || reqs.some((r) => r.done < r.target)) return { level, next: { level: n, reqs } };
+      level = n;
+    }
+    return { level, next: null };
   }
 
   function streak() {
@@ -190,8 +232,9 @@
   window.StudyApp = {
     registerTheme, registerMode, boot, themes, modes,
     record, getCard, themeStats, buildSession, streak, todayCount,
+    isPracticeDone, togglePractice, themeLevel,
     exportData, importData, resetTheme, getPref, setPref,
     util: { shuffle, escapeHtml, format, dayKey },
-    MASTERED_BOX, SESSION_SIZE,
+    MASTERED_BOX, SESSION_SIZE, LEVEL_NAMES,
   };
 })();

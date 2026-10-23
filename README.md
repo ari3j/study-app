@@ -17,7 +17,8 @@ plugins.js            読み込むプラグインの一覧（追加時はここ�
 css/style.css
 js/core.js            プラグイン登録・保存・間隔反復・出題選定
 js/app.js             画面とセッション進行
-modes/quiz4.js        学習方法プラグイン: 4択
+modes/quiz4.js        学習方法プラグイン: 4択（Lv1）
+modes/explain.js      学習方法プラグイン: 説明（Lv2）
 themes/*.js           学習テーマプラグイン
 ```
 
@@ -33,6 +34,9 @@ StudyApp.registerTheme({
   color: '#3b5bdb',            // 任意
   tips: 'テーマ画面に出る学び方のヒント', // 任意
   categories: [{ id: 'cat1', title: 'カテゴリ名' }],
+  practices: [                 // 任意。実践課題（Lv3〜5）
+    { id: 'p301', level: 3, title: '課題', detail: '補足（任意）' },
+  ],
   questions: [
     {
       id: 'q001',              // テーマ内で一意。後から変えない
@@ -59,6 +63,8 @@ StudyApp.registerTheme({
 StudyApp.registerMode({
   id: 'truefalse',
   title: '〇×',
+  level: 1,                                  // 任意。このレベルの達成条件に含める
+  gradeLabels: { confident: '…', unsure: '…', wrong: '…' }, // 任意。結果画面の表示名
   supports: (q) => q.type === 'truefalse',  // この方法で出題できる問題か
   render(el, q, api) {
     // el に問題を描画する。StudyApp.ui.h / StudyApp.util.format が使える
@@ -70,7 +76,17 @@ StudyApp.registerMode({
 });
 ```
 
-出題の選定・間隔反復・再出題・結果画面はコア側が共通で扱うため、mode は1問分の表示と判定だけを実装すればよい。
+出題の選定・間隔反復・再出題・結果画面はコア側が共通で扱うため、mode は1問分の表示と判定だけを実装すればよい。学習記録は学習方法ごとに別々に持つ。
+
+## レベル
+
+| Lv | 状態 | 達成条件 |
+|---|---|---|
+| 1 | 知っている | `level: 1` の学習方法（4択）で80%習得 |
+| 2 | 説明できる | `level: 2` の学習方法（説明）で80%習得 |
+| 3〜5 | 使える / 判断できる / 設計・改善できる | そのレベルの実践課題をすべて完了 |
+
+下のレベルから順に判定する。「習得」は確信ありの正解を間隔を空けて4回重ねた状態。
 
 ## 組み込んでいる学習法
 

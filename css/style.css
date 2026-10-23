@@ -220,6 +220,49 @@ code {
 .segmented button { flex: 1; border: 0; background: transparent; padding: 8px; border-radius: 9px; cursor: pointer; }
 .segmented button.active { background: var(--surface); box-shadow: var(--shadow); font-weight: 600; }
 
+.level-card { padding: 14px 16px; margin: 12px 0 0; }
+.level-head { display: flex; align-items: center; gap: 12px; }
+.level-badge {
+  flex: none;
+  min-width: 52px;
+  height: 52px;
+  padding: 0 8px;
+  border-radius: 14px;
+  display: grid;
+  place-items: center;
+  color: #fff;
+  font-weight: 800;
+  font-size: 1.1rem;
+}
+.level-name { font-weight: 700; font-size: 1.1rem; }
+.level-next { margin-top: 12px; padding-top: 10px; border-top: 1px solid var(--border); }
+.level-next .row-meta { margin-top: 6px; }
+.req-label { min-width: 7em; }
+.theme-badge { font-size: 1rem; }
+
+.practice-level {
+  padding: 8px 16px;
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--muted);
+  background: var(--surface-2);
+}
+.row.practice { align-items: flex-start; }
+.check {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  margin-top: 2px;
+  border: 2px solid var(--border);
+  border-radius: 7px;
+  display: grid;
+  place-items: center;
+  font-size: .85rem;
+  font-weight: 800;
+}
+.row.practice.done .check { background: var(--ok); border-color: var(--ok); color: var(--surface); }
+.row.practice.done .row-main > div:first-child { color: var(--muted); }
+
 /* ---- 出題 ---- */
 .q-meta { display: flex; gap: 6px; margin-bottom: 10px; }
 .q-text { font-size: 1.12rem; font-weight: 600; margin-bottom: 18px; }
@@ -270,6 +313,27 @@ code {
 .feedback.ok .feedback-title { color: var(--ok); }
 .feedback.ng .feedback-title { color: var(--ng); }
 .feedback-point { margin-top: 6px; }
+.explain-input {
+  width: 100%;
+  font: inherit;
+  font-size: 16px;
+  color: inherit;
+  padding: 12px 14px;
+  border: 1.5px solid var(--border);
+  border-radius: var(--radius);
+  background: var(--surface);
+  resize: vertical;
+}
+.explain-input:focus { outline: none; border-color: var(--primary); }
+.explain-input[readonly] { opacity: .8; }
+.model-answer { margin-top: 16px; padding: 14px 16px; border-radius: var(--radius); border: 1.5px solid var(--ok); background: var(--ok-bg); }
+.model-label { font-size: .78rem; font-weight: 700; color: var(--ok); }
+.model-main { font-weight: 700; margin-top: 2px; }
+.model-reason { margin-top: 6px; }
+.model-others { margin-top: 10px; }
+.model-others summary { cursor: pointer; font-size: .9rem; }
+.model-others ul { padding-left: 1.2em; margin: 8px 0 0; }
+.model-others li { margin-bottom: 6px; }
 .feedback-actions { margin-top: 12px; }
 .small-btn { min-height: 40px; padding: 6px 14px; font-size: .88rem; font-weight: 500; }
 .point-label {
