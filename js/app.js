@@ -63,7 +63,7 @@
         S.sphere.jobList(),
         methodNote(),
         h('footer', { class: 'page-footer' },
-          h('button', { class: 'link-btn', onclick: renderSecurity }, 'セキュリティ'))));
+          h('button', { class: 'link-btn', onclick: renderSecurity }, 'Security Policy'))));
   }
 
   function stat(value, label) {
@@ -84,13 +84,13 @@
   }
 
   // ---- セキュリティの説明 ----
-  // 利用者向けに、実装で実際に行っていることだけを書く（内容を変えたら README の「セキュリティ」も合わせる）
+  // 利用者向けに、実装で実際に行っていることだけを書く（内容を変えたら README の「セキュリティ」の節も合わせる）
   function renderSecurity() {
     const section = (title, ...items) => h('section', { class: 'card doc-section' },
       h('h2', null, title),
       h('ul', null, items.map((text) => h('li', null, text))));
     show(
-      header('セキュリティ', renderHome),
+      header('Security Policy', renderHome),
       h('main', { class: 'container' },
         h('p', { class: 'muted small' }, 'このページでは、このアプリがどのような技術で作られていて、利用する方の端末を守るためにどんな対策をしているかを説明します。'),
         section('このアプリのしくみ',
@@ -116,7 +116,8 @@
           '問題や解説の文章はアプリに含まれる固定のデータです。表示するときは HTML として解釈されないよう文字を置き換え（エスケープ）、決まった装飾だけを付けています。'),
         section('公開と更新',
           'GitHub Pages から HTTPS（暗号化された通信）で配信しています。',
-          'アプリの内容を更新できるのは、公開元の GitHub リポジトリの所有者だけです。変更の履歴は GitHub 上で確認できます。'),
+          'アプリの内容を更新できるのは、公開元の GitHub リポジトリの所有者だけです。変更の履歴は GitHub 上で確認できます。',
+          '公開元の GitHub アカウントは、2段階認証とパスキー認証を有効にして本人確認を強化し、第三者によるアカウントの乗っ取りや改ざんを防ぎやすくしています。'),
         section('安全に使うために',
           '公式の URL（https://ari3j.github.io/study-app/）から開いてください。コピーされたページや改変されたものには、ここに書いた対策が入っている保証がありません。',
           'ブラウザと OS は最新の状態に保ってください。'),
