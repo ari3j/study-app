@@ -1,13 +1,14 @@
-// ゲーム要素: 冒険の難易度・小さなメダル・景品交換
+// ゲーム要素: 難易度・小さなメダル・景品交換
 (function () {
   'use strict';
 
   const S = window.StudyApp;
 
+  // enabled: false の難易度は選択肢に出さない（問題がそろうまで Normal のみ）。true に戻せば選べるようになる
   const DIFFICULTIES = [
-    { id: 'easy', title: '楽ちんプレイ', description: '毎回ヒントが表示される。メダルは出にくい', medalRate: 0.5 },
-    { id: 'normal', title: 'バッチリ冒険', description: 'バランスのよい通常の冒険', medalRate: 1 },
-    { id: 'hard', title: 'いばらの道', description: '長い文章の「すべて選べ」問題。メダルも出にくい', medalRate: 0.7 },
+    { id: 'easy', title: 'Easy', description: '毎回ヒントが表示される。メダルは出にくい', medalRate: 0.5, enabled: false },
+    { id: 'normal', title: 'Normal', description: 'バランスのよい通常の難易度', medalRate: 1, enabled: true },
+    { id: 'hard', title: 'Hard', description: '長い文章の「すべて選べ」問題。メダルも出にくい', medalRate: 0.7, enabled: false },
   ];
 
   // 問題の難易度（★1〜3）ごとの基本ドロップ率。一度正解した問題は REPEAT_RATE 倍になる
@@ -52,7 +53,7 @@
 
   function difficulty() {
     const id = S.getPref('difficulty');
-    return DIFFICULTIES.find((d) => d.id === id) || DIFFICULTIES[1];
+    return DIFFICULTIES.find((d) => d.id === id && d.enabled) || DIFFICULTIES[1];
   }
 
   function setDifficulty(id) { S.setPref('difficulty', id); }

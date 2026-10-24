@@ -526,19 +526,7 @@ body.skin-gold {
 .sg-node.hub .crystal { fill: #ffffff; opacity: .9; }
 .lbl-hub { fill: #e7f5ff; font-size: 15px; font-weight: 800; letter-spacing: .1em; }
 
-.sg-node.gate .halo { opacity: .28; }
-.sg-node.gate .core { fill: var(--c); stroke: #ffffff; stroke-width: 2.5; }
-.lbl-job { fill: #0a0e2a; font-size: 12px; font-weight: 800; stroke: none !important; }
-.lbl-domain { font-size: 11px; font-weight: 800; text-anchor: middle; letter-spacing: .02em; paint-order: stroke; stroke: #070a1c; stroke-width: 4px; }
 
-.sg-node.unit .gem { fill: #3a4380; }
-.sg-node.unit.open .core { stroke: var(--c); }
-.sg-node.unit.open .gem { fill: var(--c); opacity: .55; }
-.sg-node.unit.learned .halo { fill: #ffd43b; opacity: .35; animation: sg-breathe 3s ease-in-out infinite; }
-.sg-node.unit.learned .core { fill: #3b2f00; stroke: #ffd43b; stroke-width: 3; }
-.sg-node.unit.learned .gem { fill: #ffd43b; }
-.lbl-unit { fill: #c5cbef; font-size: 12px; font-weight: 700; }
-.sg-node.unit.learned .lbl-unit { fill: #ffe066; }
 
 .sg-node.cell.available .core { fill: #0b1030; stroke: var(--c); stroke-width: 3; }
 .sg-node.cell.available .halo { opacity: .5; animation: sg-pulse 1.6s ease-in-out infinite; }
@@ -546,12 +534,10 @@ body.skin-gold {
 .sg-node.cell.cleared .halo { opacity: .3; }
 .lbl-cell { fill: #dfe4ff; font-size: 9px; font-weight: 600; opacity: 0; transition: opacity .2s; }
 .sphere-svg.near .lbl-cell { opacity: 1; }
-.sphere-svg.far .lbl-unit { opacity: 0; }
 
 .sg-node.selected .core { stroke: #ffffff; stroke-width: 4; }
 .sg-node.selected .halo { opacity: .7; }
 
-.lbl-area { font-size: 15px; font-weight: 800; text-anchor: middle; letter-spacing: .06em; paint-order: stroke; stroke: #070a1c; stroke-width: 5px; opacity: .9; }
 
 @keyframes sg-pulse { 0%, 100% { opacity: .15; } 50% { opacity: .65; } }
 @keyframes sg-breathe { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
@@ -599,7 +585,6 @@ body.skin-gold {
 .sheet-close { position: absolute; right: 8px; top: 8px; color: #c5cbef; }
 .sheet-kind { font-size: .75rem; color: #a3abd6; letter-spacing: .08em; }
 .sheet-crumbs { font-size: .8rem; color: #c5cbef; margin-top: 2px; }
-.sheet-job { display: inline-block; margin-left: 10px; padding: 1px 10px; border-radius: 99px; color: #0a0e2a; font-size: .8rem; vertical-align: 3px; }
 .sheet-section { margin: 16px 0 6px; font-size: .8rem; font-weight: 700; color: #a3abd6; }
 .sheet-line { padding: 6px 0; border-bottom: 1px solid #252c5c; display: flex; flex-direction: column; }
 .sheet-line.ok { color: #ffe066; }
@@ -611,6 +596,81 @@ body.skin-gold {
 .job-head { display: flex; justify-content: space-between; }
 .job-row .bar { margin-top: 6px; background: #252c5c; }
 .demo-btn { background: transparent; color: #c5cbef; border-color: #3a4380; font-weight: 500; }
-.sg-node.area .halo { opacity: .2; }
-.sg-node.area .core { fill: #10163c; stroke: var(--c); stroke-width: 2.5; }
-.sg-node.area .dot { fill: var(--c); }
+
+.sg-node .icon { fill: #3a4380; }
+.sg-node.type .halo { opacity: .3; }
+.sg-node.type .core { fill: #10163c; stroke: var(--c); stroke-width: 3; }
+.sg-node.type .icon { fill: var(--c); }
+.lbl-type { fill: var(--c); font-size: 13px; font-weight: 800; letter-spacing: .1em; }
+.sg-node.ability.open .core { stroke: var(--c); }
+.sg-node.ability.open .icon { fill: var(--c); opacity: .6; }
+.sg-node.ability.learned .halo { fill: #ffd43b; opacity: .35; animation: sg-breathe 3s ease-in-out infinite; }
+.sg-node.ability.learned .core { fill: #3b2f00; stroke: #ffd43b; stroke-width: 3; }
+.sg-node.ability.learned .icon { fill: #ffd43b; }
+.lbl-ability { fill: #c5cbef; font-size: 12px; font-weight: 700; }
+.sg-node.ability.learned .lbl-ability { fill: #ffe066; }
+.sphere-svg.far .lbl-ability { opacity: 0; }
+.lbl-group { font-size: 12px; font-weight: 700; text-anchor: middle; paint-order: stroke; stroke: #070a1c; stroke-width: 4px; opacity: .7; }
+
+.type-badge { display: inline-block; padding: 1px 10px; border-radius: 99px; color: #0a0e2a; font-size: .78rem; font-weight: 700; }
+.sheet-crumbs .type-badge { margin-right: 4px; }
+
+.job-card { display: block; width: 100%; padding: 14px 16px; text-align: left; cursor: pointer; }
+.job-card:hover:not(:disabled) { border-color: var(--primary); }
+.job-card.disabled { cursor: default; opacity: .7; }
+.job-card-head { display: flex; align-items: center; gap: 8px; }
+.job-card-title { font-weight: 800; font-size: 1.1rem; }
+.type-bar { display: flex; height: 8px; border-radius: 99px; overflow: hidden; margin: 10px 0 6px; gap: 2px; }
+.type-legend { display: flex; flex-wrap: wrap; gap: 4px 12px; font-size: .8rem; margin-bottom: 4px; }
+.type-legend i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 4px; }
+.job-reqs { margin-top: 8px; font-size: .82rem; display: flex; flex-wrap: wrap; gap: 4px 8px; align-items: center; }
+.job-reqs .req { padding: 1px 8px; border-radius: 99px; background: var(--surface-2); }
+.job-reqs .req.ok { background: var(--ok-bg); color: var(--ok); }
+.sg-node.ability.ready .core { stroke: #ffd43b; stroke-width: 3; }
+.sg-node.ability.ready .icon { fill: #ffd43b; opacity: .8; }
+.sg-node.ability.ready .halo { fill: #ffd43b; opacity: .5; animation: sg-pulse 1.4s ease-in-out infinite; }
+
+/* ---- チャレンジ ---- */
+.challenge-status { display: flex; align-items: center; gap: 6px; margin-bottom: 10px; flex-wrap: wrap; }
+.phase-pill { background: var(--primary); color: var(--primary-text); font-weight: 700; }
+.challenge-score { margin-left: auto; font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.timer { height: 8px; border-radius: 99px; background: var(--surface-2); overflow: hidden; margin-bottom: 14px; }
+.timer-fill { height: 100%; width: 100%; background: var(--ok); transition: width .1s linear; }
+.timer-fill.low { background: var(--ng); }
+
+.phase-screen {
+  min-height: 100vh;
+  min-height: 100dvh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 24px;
+  text-align: center;
+  color: #fff;
+  background: radial-gradient(ellipse at 50% 40%, #1d2a7a, #070a1c 70%);
+}
+.phase-screen.phase-middle { background: radial-gradient(ellipse at 50% 40%, #3b1f7a, #0b0720 70%); }
+.phase-screen.phase-final { background: radial-gradient(ellipse at 50% 40%, #7a1f3b, #1c070d 70%); }
+.phase-kicker { font-size: .85rem; letter-spacing: .2em; opacity: .75; }
+.phase-title { font-size: 4rem; font-weight: 900; letter-spacing: .2em; text-shadow: 0 0 24px rgba(255, 255, 255, .45); animation: phase-in .5s ease-out; }
+.phase-sub { font-size: 1rem; opacity: .9; }
+.phase-score { margin: 8px 0 14px; font-size: .9rem; opacity: .75; }
+@keyframes phase-in { from { transform: scale(1.6); opacity: 0; letter-spacing: .6em; } }
+
+/* 最後の難問パート（画面の縁が赤紫に脈打つ） */
+body.rush::after {
+  content: "";
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 50;
+  box-shadow: inset 0 0 80px 20px rgba(190, 40, 160, .45);
+  animation: rush 2.4s ease-in-out infinite;
+}
+@keyframes rush { 0%, 100% { opacity: .55; } 50% { opacity: 1; } }
+
+.challenge-result-title { font-size: 2rem; font-weight: 900; letter-spacing: .1em; }
+.challenge-result.win .challenge-result-title { color: var(--ok); }
+.challenge-result.lose .challenge-result-title { color: var(--ng); }

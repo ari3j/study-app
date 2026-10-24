@@ -9,7 +9,16 @@ StudyApp.boot({
     'themes/harness-design.js',
     'themes/agentic-coding.js',
   ],
-  curricula: [
-    'curriculum/genai.js',
+  jobs: [
+    'jobs/genai.js',
+    'jobs/planned.js',
+  ],
+  questions: [
+    'questions/genai/ml-basics.js',
+    'questions/genai/prompt-basic.js',
+    'questions/genai/business.js',
+    'questions/genai/gov-risk.js',
+    'questions/genai/agent-basic.js',
+    'questions/genai/ai-dev.js',
   ],
 });

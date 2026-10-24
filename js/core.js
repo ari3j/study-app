@@ -14,15 +14,27 @@
 
   const themes = new Map();
   const modes = new Map();
-  const curricula = new Map();
+  const jobs = new Map();
 
-  function registerCurriculum(cur) {
-    if (!cur || !cur.id || !Array.isArray(cur.domains)) {
-      console.error('registerCurriculum: id と domains は必須です', cur);
+  function registerJob(job) {
+    if (!job || !job.id || !job.title || !Array.isArray(job.abilities)) {
+      console.error('registerJob: id, title, abilities は必須です', job);
       return;
     }
-    curricula.set(cur.id, cur);
+    jobs.set(job.id, job);
   }
+
+  // スフィア盤のマスの問題。cell はアビリティ内のマスの番号（0 始まり）
+  const cellQuestions = new Map();
+  function registerQuestions(def) {
+    if (!def || !def.job || !def.ability || def.cell == null || !Array.isArray(def.questions)) {
+      console.error('registerQuestions: job, ability, cell, questions は必須です', def);
+      return;
+    }
+    const key = def.job + '/' + def.ability + '/' + def.cell;
+    cellQuestions.set(key, [...(cellQuestions.get(key) || []), ...def.questions]);
+  }
+  function questionsForCell(jobId, abilityId, cell) { return cellQuestions.get(jobId + '/' + abilityId + '/' + cell) || []; }
 
   function registerTheme(theme) {
     if (!theme || !theme.id || !theme.title || !Array.isArray(theme.questions)) {
@@ -51,7 +63,7 @@
   }
 
   async function boot(config) {
-    for (const src of [...(config.modes || []), ...(config.themes || []), ...(config.curricula || [])]) await loadScript(src);
+    for (const src of [...(config.modes || []), ...(config.themes || []), ...(config.jobs || []), ...(config.questions || [])]) await loadScript(src);
     StudyApp.start();
   }
 
@@ -242,7 +254,7 @@
   }
 
   window.StudyApp = {
-    registerTheme, registerMode, registerCurriculum, boot, themes, modes, curricula,
+    registerTheme, registerMode, registerJob, registerQuestions, questionsForCell, boot, themes, modes, jobs,
     record, getCard, themeStats, buildSession, streak, todayCount,
     isPracticeDone, togglePractice, themeLevel,
     exportData, importData, resetTheme, getPref, setPref, state, save,

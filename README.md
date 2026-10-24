@@ -18,6 +18,10 @@ css/style.css
 js/core.js            プラグイン登録・保存・間隔反復・出題選定
 js/app.js             画面とセッション進行
 js/game.js            難易度・メダル・景品交換
+js/sphere.js          ジョブ一覧とスフィア盤
+js/challenge.js       スフィア盤のマスを開くチャレンジ
+jobs/*.js             ジョブ（スフィア盤）の定義
+questions/            スフィア盤のマスの問題
 modes/quiz4.js        学習方法プラグイン: 4択（Lv1）
 modes/explain.js      学習方法プラグイン: 説明（Lv2）
 themes/*.js           学習テーマプラグイン
@@ -49,8 +53,8 @@ StudyApp.registerTheme({
       explanations: ['各選択肢がなぜ正しい/誤りか', '', '', ''],
       point: '覚えるべき要点（1文）',
       difficulty: 2,           // ★1〜3。メダルの出やすさに影響
-      hint: '楽ちんプレイで表示するヒント（答えは書かない）',
-      hard: {                  // いばらの道で出題する高難度版（すべて選べ形式）
+      hint: '難易度 Easy で表示するヒント（答えは書かない）',
+      hard: {                  // 難易度 Hard とアビリティラーニングの最後で出題する高難度版（すべて選べ形式）
         question: '長めの状況設定つきの問題文',
         choices: ['記述0', '記述1', '記述2', '記述3', '記述4'],
         answers: [0, 2],       // 選ぶべき記述の index（複数）
@@ -78,7 +82,7 @@ StudyApp.registerMode({
   render(el, q, api) {
     // el に問題を描画する。StudyApp.ui.h / StudyApp.util.format が使える
     // api.theme          出題中のテーマ
-    // api.difficulty     冒険の難易度 'easy' | 'normal' | 'hard'
+    // api.difficulty     難易度 'easy' | 'normal' | 'hard'
     // api.onKey(fn)      キーボード操作のハンドラを登録
     // StudyApp.ui.shareToAI(text, button)  外部 AI チャットへ渡す（スマホは共有シート、PC はコピー）
     // api.finish(grade)  回答完了。grade は 'confident' | 'unsure' | 'wrong'
@@ -98,13 +102,30 @@ StudyApp.registerMode({
 
 下のレベルから順に判定する。「習得」は確信ありの正解を間隔を空けて4回重ねた状態。
 
+## ジョブとスフィア盤（js/sphere.js・js/challenge.js）
+
+- ジョブ（`jobs/*.js`）ごとにスフィア盤が1枚ある。アビリティは攻撃・魔法・回復・補助の4系統
+- マス = 10問のチャレンジ（7割以上の正解でクリア）。アビリティのマスをすべてクリアすると、アビリティのマス（20問、14問以上でクリア）に挑戦でき、クリアでアビリティを習得
+- アビリティのマスは3段構成: 最初の6問は制限時間15秒の早押し（正解したことのある問題を優先）、次の8問はじっくり、最後の6問は★3の問題を高難度版（`hard`）があればそれで出す
+- 画面上の呼び名は `js/challenge.js` の `NAMES` で変えられる
+- マスの問題は `questions/<ジョブ>/<アビリティ>.js` で登録し、`plugins.js` の `questions` に追加する
+
+```js
+StudyApp.registerQuestions({
+  job: 'genai', ability: 'ml-basics', cell: 0,   // cell はアビリティ内のマスの番号（0 始まり）
+  questions: [ /* 学習テーマと同じ形式の問題（category は不要） */ ],
+});
+```
+
 ## ゲーム要素（js/game.js）
 
-| 冒険の難易度 | 内容 | メダル倍率 |
+| 難易度 | 内容 | メダル倍率 |
 |---|---|---|
-| 楽ちんプレイ | 毎回ヒントを表示 | ×0.5 |
-| バッチリ冒険 | 通常 | ×1.0 |
-| いばらの道 | `hard` 版を「すべて選べ」形式で出題 | ×0.7 |
+| Easy | 毎回ヒントを表示 | ×0.5 |
+| Normal | 通常 | ×1.0 |
+| Hard | `hard` 版を「すべて選べ」形式で出題 | ×0.7 |
+
+現在は問題がそろうまで Normal のみ（Easy・Hard は `js/game.js` の `enabled: false` を `true` にすると選べるようになる）。
 
 - 小さなメダル: セッション内の初回の正解で抽選。基本確率は ★1: 12% / ★2: 20% / ★3: 32%。一度正解したことがある問題は ×0.3
 - メダル交換所: 称号・画面カラー（画面上の景品）と、自分で登録するリアルのごほうび

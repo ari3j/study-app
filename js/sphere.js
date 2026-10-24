@@ -1,10 +1,29 @@
-// スフィア盤: カリキュラムを FF10 風の成長マップとして描く（試作: マスのクリアはデモ操作のみ）
+// ジョブ一覧とスフィア盤（FF10 風の成長マップ）。試作: マスのクリアはデモ操作のみ
 (function () {
   'use strict';
 
   const S = window.StudyApp;
   const NS = 'http://www.w3.org/2000/svg';
   const RAD = Math.PI / 180;
+
+  // アビリティの系統。名前・色・アイコンはここだけで決める
+  const TYPES = {
+    theory: { label: '攻撃', meaning: '基礎・理論', color: '#ff8787', icon: 'M0 -12 L3 3 L1.2 3 L1.2 10 L-1.2 10 L-1.2 3 L-3 3 Z M-7 3 L7 3 L7 5.5 L-7 5.5 Z' },
+    apply: { label: '魔法', meaning: '活用', color: '#b197fc', icon: star(11, 4.6) },
+    operate: { label: '回復', meaning: '運用', color: '#69db7c', icon: 'M-2.8 -10 H2.8 V-2.8 H10 V2.8 H2.8 V10 H-2.8 V2.8 H-10 V-2.8 H-2.8 Z' },
+    build: { label: '補助', meaning: '開発', color: '#4dabf7', icon: 'M-9 -2 L0 -11 L9 -2 L9 2.5 L0 -6.5 L-9 2.5 Z M-9 6 L0 -3 L9 6 L9 10.5 L0 1.5 L-9 10.5 Z' },
+  };
+  const TYPE_ORDER = Object.keys(TYPES);
+
+  function star(ro, ri) {
+    let d = '';
+    for (let i = 0; i < 10; i++) {
+      const r = i % 2 ? ri : ro;
+      const a = (-90 + i * 36) * RAD;
+      d += (i ? 'L' : 'M') + (r * Math.cos(a)).toFixed(1) + ' ' + (r * Math.sin(a)).toFixed(1) + ' ';
+    }
+    return d + 'Z';
+  }
 
   function s(tag, attrs, ...children) {
     const el = document.createElementNS(NS, tag);
@@ -13,100 +32,138 @@
     return el;
   }
 
+  // ---- 進行状況 ----
+  function cleared(jobId) {
+    const st = S.state('sphere');
+    return st[jobId] || (st[jobId] = {});
+  }
+
+  // マスをすべてクリアするとアビリティのマスに挑戦でき、そこをクリアするとアビリティを習得する
+  function cellsDone(job, ab) { const c = cleared(job.id); return ab.cells.every((_, i) => c[ab.id + '-' + i]); }
+  function abilityLearned(job, ab) { return !!cleared(job.id)['ab:' + ab.id]; }
+  function jobProgress(job) {
+    const done = job.abilities.filter((ab) => abilityLearned(job, ab)).length;
+    return { done, total: job.abilities.length, mastered: job.abilities.length > 0 && done === job.abilities.length };
+  }
+
   // ---- 配置 ----
-  // 中央に「生成AI」、上下左右に上位テーマ（ジョブ）の起点、そこから中位テーマごとに放射状の道を伸ばす。
-  // 道の上に下位テーマ（アビリティ）の大きいマスを並べ、その手前にマスを並べる。
-  function layout(cur) {
+  // 中央にジョブ。系統ごとに扇形の区画を割り当て、区画の中で分類（group）ごとに道を放射状に伸ばす。
+  // 区画の広さは道の本数に比例するので、系統の偏りがそのまま盤面の形になる。
+  function layout(job) {
     const nodes = [];
     const edges = [];
     const byId = {};
-    const units = {};
+    const abilities = {};
+    const labels = [];
     const add = (n) => { nodes.push(n); byId[n.id] = n; return n; };
     const link = (a, b, kind) => edges.push({ a, b, kind: kind || 'path' });
-    const labels = [];
 
-    const hub = add({ id: 'hub', kind: 'hub', x: 0, y: 0, r: 34 });
-    cur.domains.forEach((d, di) => {
-      const phi = (-90 + 90 * di) * RAD;
-      const gate = add({ id: 'gate-' + d.id, kind: 'gate', domain: d, x: 140 * Math.cos(phi), y: 140 * Math.sin(phi), r: 24 });
-      link(hub, gate);
-      labels.push({ x: 76 * Math.cos(phi), y: 76 * Math.sin(phi) + 4, text: d.title, cls: 'lbl-domain', color: d.color });
-      const spread = d.areas.length > 3 ? 24 : 29;
-      d.areas.forEach((a, ai) => {
-        const ang = phi + (ai - (d.areas.length - 1) / 2) * spread * RAD;
-        // 中位テーマの分岐点。ここから下位テーマの道が伸びる
-        const areaNode = add({ id: 'area-' + a.id, kind: 'area', area: a, domain: d, x: 225 * Math.cos(ang), y: 225 * Math.sin(ang), r: 14 });
-        link(gate, areaNode);
-        let prev = areaNode;
-        a.units.forEach((u, ui) => {
-          const R = 400 + ui * 230;
-          const ux = R * Math.cos(ang);
-          const uy = R * Math.sin(ang);
-          const dx = ux - prev.x;
-          const dy = uy - prev.y;
-          const len = Math.hypot(dx, dy);
-          const cells = u.cells.map((title, ci) => {
-            const t = (ci + 1) / (u.cells.length + 1);
-            const off = (ci % 2 ? 1 : -1) * 17;
-            return add({
-              id: u.id + '-' + ci, kind: 'cell', title, index: ci, unit: u, area: a, domain: d,
-              x: prev.x + dx * t - (dy / len) * off, y: prev.y + dy * t + (dx / len) * off, r: 11,
-            });
-          });
-          const un = add({ id: 'unit-' + u.id, kind: 'unit', unit: u, area: a, domain: d, x: ux, y: uy, r: 22, cells, prevUnit: ui ? a.units[ui - 1] : null });
-          units[u.id] = un;
-          [prev, ...cells, un].reduce((p, c) => { link(p, c); return c; });
-          prev = un;
-        });
-        const R = 400 + (a.units.length - 1) * 230 + 78;
-        labels.push({ x: R * Math.cos(ang), y: R * Math.sin(ang), text: a.title, cls: 'lbl-area', color: d.color });
-      });
-    });
-    // 他エリアの前提（requires）は点線で結ぶ
-    for (const un of Object.values(units)) {
-      for (const req of un.unit.requires || []) if (units[req]) link(units[req], un.cells[0], 'requires');
+    const groups = [];
+    for (const ab of job.abilities) {
+      let g = groups.find((x) => x.title === ab.group && x.type === ab.type);
+      if (!g) groups.push(g = { title: ab.group, type: ab.type, abilities: [] });
+      g.abilities.push(ab);
     }
-    return { nodes, edges, byId, units, labels };
+    groups.sort((a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type));
+
+    const hub = add({ id: 'hub', kind: 'hub', x: 0, y: 0, r: 36 });
+    const step = 360 / groups.length;
+    const firstCount = groups.filter((g) => g.type === groups[0].type).length;
+    groups.forEach((g, gi) => { g.angle = (-90 + (gi - (firstCount - 1) / 2) * step) * RAD; });
+
+    for (const type of TYPE_ORDER) {
+      const gs = groups.filter((g) => g.type === type);
+      if (!gs.length) continue;
+      const mid = gs.reduce((sum, g) => sum + g.angle, 0) / gs.length;
+      const tn = add({ id: 'type-' + type, kind: 'type', type, x: 150 * Math.cos(mid), y: 150 * Math.sin(mid), r: 24, count: gs.reduce((n, g) => n + g.abilities.length, 0) });
+      link(hub, tn);
+      for (const g of gs) {
+        let prev = tn;
+        g.abilities.forEach((ab, ai) => {
+          const R = 340 + ai * 230;
+          const ax = R * Math.cos(g.angle);
+          const ay = R * Math.sin(g.angle);
+          const dx = ax - prev.x;
+          const dy = ay - prev.y;
+          const len = Math.hypot(dx, dy);
+          const cells = ab.cells.map((cell, ci) => {
+            const t = (ci + 1) / (ab.cells.length + 1);
+            const off = (ci % 2 ? 1 : -1) * 17;
+            const title = typeof cell === 'string' ? cell : cell.title;
+            const from = typeof cell === 'string' ? [] : cell.from || [];
+            return add({ id: ab.id + '-' + ci, kind: 'cell', title, from, index: ci, ability: ab, type, x: prev.x + dx * t - (dy / len) * off, y: prev.y + dy * t + (dx / len) * off, r: 11 });
+          });
+          const an = add({ id: 'ab-' + ab.id, kind: 'ability', ability: ab, type, x: ax, y: ay, r: 22, cells, prev: ai ? g.abilities[ai - 1] : null });
+          abilities[ab.id] = an;
+          [prev, ...cells, an].reduce((p, c) => { link(p, c); return c; });
+          prev = an;
+        });
+        const R = 340 + (g.abilities.length - 1) * 230 + 100;
+        labels.push({ x: R * Math.cos(g.angle), y: R * Math.sin(g.angle) + 4, text: g.title, color: TYPES[type].color });
+      }
+    }
+    for (const an of Object.values(abilities)) {
+      for (const req of an.ability.requires || []) if (abilities[req]) link(abilities[req], an.cells[0], 'requires');
+    }
+    return { nodes, edges, byId, abilities, labels };
   }
 
-  // ---- 進行状況 ----
-  function progress() {
-    const st = S.state('sphere');
-    if (!st.cleared) st.cleared = {};
-    return st;
-  }
-
-  // layout は各 unit のマスを unit より先に追加しているので、この順で評価すれば unit の判定時にはマスの状態が決まっている
-  function evaluate(L) {
-    const cleared = progress().cleared;
-    const learned = (unitId) => L.units[unitId].cells.every((c) => cleared[c.id]);
+  // layout はアビリティのマスをアビリティより先に追加しているので、この順で評価すれば足りる
+  function evaluate(job, L) {
+    const c = cleared(job.id);
     for (const n of L.nodes) {
-      if (n.kind === 'hub' || n.kind === 'gate' || n.kind === 'area') { n.state = 'lit'; continue; }
-      if (n.kind === 'unit') {
-        n.state = learned(n.unit.id) ? 'learned' : n.cells.some((c) => c.state !== 'locked') ? 'open' : 'locked';
+      if (n.kind === 'hub' || n.kind === 'type') { n.state = 'lit'; continue; }
+      if (n.kind === 'ability') {
+        n.state = abilityLearned(job, n.ability) ? 'learned' : cellsDone(job, n.ability) ? 'ready' : n.cells.some((x) => x.state !== 'locked') ? 'open' : 'locked';
         continue;
       }
-      const un = L.units[n.unit.id];
+      const an = L.abilities[n.ability.id];
       const missing = [];
-      if (un.prevUnit && !learned(un.prevUnit.id)) missing.push(un.prevUnit.title);
-      for (const req of n.unit.requires || []) if (!learned(req)) missing.push(L.units[req].unit.title);
-      n.missingUnits = missing;
-      const prevCell = n.index ? un.cells[n.index - 1] : null;
-      n.state = cleared[n.id] ? 'cleared' : !missing.length && (!prevCell || cleared[prevCell.id]) ? 'available' : 'locked';
+      if (an.prev && !abilityLearned(job, an.prev)) missing.push(an.prev.title);
+      for (const req of n.ability.requires || []) if (!abilityLearned(job, L.abilities[req].ability)) missing.push(L.abilities[req].ability.title);
+      n.missing = missing;
+      const prevCell = n.index ? an.cells[n.index - 1] : null;
+      n.state = c[n.id] ? 'cleared' : !missing.length && (!prevCell || c[prevCell.id]) ? 'available' : 'locked';
     }
   }
 
-  function domainProgress(L, d) {
-    const us = Object.values(L.units).filter((u) => u.domain === d);
-    return { done: us.filter((u) => u.state === 'learned').length, total: us.length };
+  // ---- ジョブ一覧 ----
+  function openJobs() {
+    const { h, show, header, renderHome } = S.ui;
+    const all = [...S.jobs.values()];
+    const card = (job) => {
+      const p = jobProgress(job);
+      const reqs = (job.requires || []).map((id) => S.jobs.get(id)).filter(Boolean);
+      const unlocked = reqs.every((r) => jobProgress(r).mastered);
+      const playable = !job.planned && unlocked;
+      const counts = TYPE_ORDER.map((t) => ({ t, n: job.abilities.filter((ab) => ab.type === t).length }));
+      return h('button', { class: 'card job-card' + (playable ? '' : ' disabled'), disabled: !playable, onclick: () => open(job.id) },
+        h('div', { class: 'job-card-head' },
+          h('span', { class: 'job-card-title' }, job.title),
+          job.planned ? h('span', { class: 'pill' }, '準備中') : p.mastered ? h('span', { class: 'pill ok' }, 'マスター') : null),
+        h('div', { class: 'small muted' }, job.description),
+        job.abilities.length ? [
+          h('div', { class: 'type-bar' }, counts.filter((x) => x.n).map((x) => h('span', { style: 'flex:' + x.n + ';background:' + TYPES[x.t].color }))),
+          h('div', { class: 'type-legend' }, counts.filter((x) => x.n).map((x) => h('span', null, h('i', { style: 'background:' + TYPES[x.t].color }), TYPES[x.t].label + ' ' + x.n))),
+          h('div', { class: 'small muted' }, 'アビリティ習得 ' + p.done + '/' + p.total)] : null,
+        reqs.length ? h('div', { class: 'job-reqs' }, '挑戦条件: ', reqs.map((r) => h('span', { class: 'req' + (jobProgress(r).mastered ? ' ok' : '') }, (jobProgress(r).mastered ? '✓ ' : '') + r.title + ' をマスター'))) : null);
+    };
+    show(
+      header('ジョブ', renderHome),
+      h('main', { class: 'container' },
+        h('p', { class: 'small muted' }, 'ジョブごとにスフィア盤があります。マスを進めてアビリティを覚え、すべて覚えるとそのジョブをマスター。複数のジョブをマスターすると上級ジョブに挑戦できます。'),
+        h('h2', { class: 'section-title' }, '基本ジョブ'),
+        h('div', { class: 'stack' }, all.filter((j) => j.tier !== 'advanced').map(card)),
+        h('h2', { class: 'section-title' }, '上級ジョブ'),
+        h('div', { class: 'stack' }, all.filter((j) => j.tier === 'advanced').map(card))));
   }
 
-  // ---- 画面 ----
-  function open(curId) {
-    const cur = S.curricula.get(curId || 'genai');
-    const { h, show, header, renderHome } = S.ui;
-    const L = layout(cur);
-    evaluate(L);
+  // ---- スフィア盤 ----
+  function open(jobId) {
+    const job = S.jobs.get(jobId);
+    const { h, show, header } = S.ui;
+    const L = layout(job);
+    evaluate(job, L);
 
     const svg = s('svg', { class: 'sphere-svg' });
     const world = s('g');
@@ -114,7 +171,7 @@
     const gNodes = s('g');
     const gLabels = s('g');
     world.append(stars(), gEdges, gNodes, gLabels);
-    svg.append(defs(cur), world);
+    svg.append(defs(), world);
 
     const sheet = h('div', { class: 'sphere-sheet hidden' });
     const wrap = h('div', { class: 'sphere-wrap' }, svg,
@@ -124,19 +181,19 @@
         h('button', { onclick: center, 'aria-label': '中央へ' }, '◎')),
       sheet);
     const resetBtn = h('button', { class: 'icon-btn', 'aria-label': '試作の進行をリセット', onclick: () => {
-      if (confirm('スフィア盤の進行（試作）をリセットしますか？')) { progress().cleared = {}; S.save(); redraw(); closeSheet(); }
+      if (confirm('このジョブの進行（試作）をリセットしますか？')) { S.state('sphere')[job.id] = {}; S.save(); closeSheet(); }
     } }, '↺');
-    const top = header(cur.title + ' スフィア盤', renderHome, resetBtn);
+    const top = header(job.title + ' のスフィア盤', openJobs, resetBtn);
     show(top, wrap);
     wrap.style.top = top.offsetHeight + 'px';
 
     let selected = null;
 
     function redraw() {
-      evaluate(L);
+      evaluate(job, L);
       gEdges.replaceChildren(...L.edges.map((e) => {
         const lit = isLit(e.a) && isLit(e.b);
-        const color = (e.b.domain || e.a.domain || {}).color;
+        const color = TYPES[e.b.type || e.a.type] ? TYPES[e.b.type || e.a.type].color : '#fff';
         return s('line', {
           x1: e.a.x, y1: e.a.y, x2: e.b.x, y2: e.b.y,
           class: 'sg-edge ' + e.kind + (lit && e.kind === 'path' ? ' lit' : ''),
@@ -144,36 +201,32 @@
         });
       }));
       gNodes.replaceChildren(...L.nodes.map(drawNode));
-      gLabels.replaceChildren(...L.labels.map((l) => s('text', { x: l.x, y: l.y, class: l.cls, fill: l.color }, l.text)));
+      gLabels.replaceChildren(...L.labels.map((l) => s('text', { x: l.x, y: l.y, class: 'lbl-group', fill: l.color }, l.text)));
     }
 
     function isLit(n) { return ['lit', 'cleared', 'learned'].includes(n.state); }
 
     function drawNode(n) {
-      const color = n.domain ? n.domain.color : '#ffffff';
-      const g = s('g', { class: 'sg-node ' + n.kind + ' ' + n.state + (selected === n ? ' selected' : ''), 'data-id': n.id, transform: 'translate(' + n.x + ' ' + n.y + ')', style: '--c:' + color });
+      const t = TYPES[n.type];
+      const g = s('g', { class: 'sg-node ' + n.kind + ' ' + n.state + (selected === n ? ' selected' : ''), 'data-id': n.id, transform: 'translate(' + n.x + ' ' + n.y + ')', style: '--c:' + (t ? t.color : '#fff') });
       if (n.kind === 'hub') {
         g.append(
           s('circle', { r: n.r + 22, class: 'halo', fill: 'url(#hubHalo)' }),
           s('circle', { r: n.r, fill: 'url(#hubFill)', class: 'core' }),
           s('path', { d: 'M0 -18 L12 0 L0 18 L-12 0 Z', class: 'crystal' }),
-          s('text', { y: n.r + 20, class: 'lbl-hub' }, cur.title));
-      } else if (n.kind === 'gate') {
+          s('text', { y: n.r + 20, class: 'lbl-hub' }, job.title));
+      } else if (n.kind === 'type') {
         g.append(
           s('circle', { r: n.r + 14, class: 'halo' }),
           s('circle', { r: n.r, class: 'core' }),
-          s('text', { y: 5, class: 'lbl-job' }, n.domain.job));
-      } else if (n.kind === 'area') {
-        g.append(
-          s('circle', { r: n.r + 10, class: 'halo' }),
-          s('circle', { r: n.r, class: 'core' }),
-          s('circle', { r: 5, class: 'dot' }));
-      } else if (n.kind === 'unit') {
+          s('path', { d: t.icon, class: 'icon', transform: 'scale(1.15)' }),
+          s('text', { y: n.r + 18, class: 'lbl-type' }, t.label));
+      } else if (n.kind === 'ability') {
         g.append(
           s('circle', { r: n.r + 14, class: 'halo' }),
           s('circle', { r: n.r, class: 'core' }),
-          s('path', { d: 'M0 -11 L9.5 0 L0 11 L-9.5 0 Z', class: 'gem' }),
-          s('text', { y: n.r + 18, class: 'lbl-unit' }, n.unit.title));
+          s('path', { d: t.icon, class: 'icon' }),
+          s('text', { y: n.r + 18, class: 'lbl-ability' }, n.ability.title));
       } else {
         g.append(
           s('circle', { r: n.r + 9, class: 'halo' }),
@@ -198,76 +251,107 @@
       redraw();
     }
 
-    function crumbs(n) {
-      return h('div', { class: 'sheet-crumbs' },
-        h('span', { style: 'color:' + n.domain.color }, '上位 ' + n.domain.title), ' › ',
-        '中位 ' + n.area.title, n.kind === 'cell' ? [' › ', '下位 ' + n.unit.title] : null);
+    function typeBadge(type) {
+      const t = TYPES[type];
+      return h('span', { class: 'type-badge', style: 'background:' + t.color }, t.label + 'アビリティ');
+    }
+
+    function progressRow(title, done, total, color) {
+      const pct = total ? Math.round((done / total) * 100) : 0;
+      return h('div', { class: 'job-row' + (total && done === total ? ' ok' : '') },
+        h('div', { class: 'job-head' }, h('strong', null, title), h('span', { class: 'small muted' }, done + '/' + total)),
+        h('div', { class: 'bar' }, h('div', { class: 'bar-fill', style: 'width:' + pct + '%;background:' + color })));
     }
 
     function sheetContent(n) {
       const close = h('button', { class: 'icon-btn sheet-close', onclick: closeSheet, 'aria-label': '閉じる' }, '×');
-      const cleared = progress().cleared;
+      const c = cleared(job.id);
+      const abs = Object.values(L.abilities);
       if (n.kind === 'hub') {
-        return [close, h('div', { class: 'sheet-kind' }, 'カリキュラム'), h('h3', null, cur.title),
-          h('div', { class: 'sheet-section' }, '基本職'),
-          cur.domains.map((d) => { const p = domainProgress(L, d); return jobRow(d.job + '・' + d.title, d.subtitle + ': ' + d.description, p.done, p.total, d.color); }),
-          h('div', { class: 'sheet-section' }, '上位職'),
-          (cur.jobs || []).map((j) => {
-            const ok = j.requires.every((id) => { const d = cur.domains.find((x) => x.id === id); const p = domainProgress(L, d); return p.done === p.total; });
-            const need = j.requires.map((id) => cur.domains.find((x) => x.id === id).job).join(' + ');
-            return h('div', { class: 'job-row' + (ok ? ' ok' : '') }, h('strong', null, j.title), h('div', { class: 'small' }, j.description), h('div', { class: 'small muted' }, '転職条件: ' + need + ' をマスター'));
-          })];
+        const p = jobProgress(job);
+        const advanced = [...S.jobs.values()].filter((j) => (j.requires || []).includes(job.id));
+        return [close, h('div', { class: 'sheet-kind' }, 'ジョブ'), h('h3', null, job.title),
+          h('p', { class: 'small muted' }, job.description),
+          progressRow('アビリティ習得', p.done, p.total, '#ffd43b'),
+          h('div', { class: 'sheet-section' }, '系統ごとのアビリティ'),
+          TYPE_ORDER.filter((t) => abs.some((a) => a.type === t)).map((t) => {
+            const list = abs.filter((a) => a.type === t);
+            return progressRow(TYPES[t].label + '（' + TYPES[t].meaning + '）', list.filter((a) => a.state === 'learned').length, list.length, TYPES[t].color);
+          }),
+          advanced.length ? [h('div', { class: 'sheet-section' }, 'このジョブが条件の上級ジョブ'),
+            advanced.map((j) => h('div', { class: 'sheet-line' }, j.title, h('span', { class: 'small muted' }, '条件: ' + j.requires.map((id) => (S.jobs.get(id) || {}).title).join(' + '))))] : null];
       }
-      if (n.kind === 'gate') {
-        const p = domainProgress(L, n.domain);
-        return [close, h('div', { class: 'sheet-kind' }, '上位テーマ / ジョブ'),
-          h('h3', null, n.domain.title, h('span', { class: 'sheet-job', style: 'background:' + n.domain.color }, n.domain.job)),
-          h('p', { class: 'small muted' }, n.domain.subtitle + ': ' + n.domain.description),
-          jobRow('アビリティ習得', '', p.done, p.total, n.domain.color),
-          h('div', { class: 'sheet-section' }, '中位テーマ'),
-          n.domain.areas.map((a) => h('div', { class: 'sheet-line' }, a.title, h('span', { class: 'small muted' }, a.units.map((u) => u.title).join(' / '))))];
+      if (n.kind === 'type') {
+        const list = abs.filter((a) => a.type === n.type);
+        return [close, h('div', { class: 'sheet-kind' }, '系統'), h('h3', null, typeBadge(n.type)),
+          h('p', { class: 'small muted' }, TYPES[n.type].meaning + 'にあたるアビリティ'),
+          progressRow('習得', list.filter((a) => a.state === 'learned').length, list.length, TYPES[n.type].color),
+          list.map((a) => h('div', { class: 'sheet-line' + (a.state === 'learned' ? ' ok' : '') }, (a.state === 'learned' ? '✓ ' : '・') + a.ability.title, h('span', { class: 'small muted' }, a.ability.group)))];
       }
-      if (n.kind === 'area') {
-        const us = n.area.units.map((u) => L.units[u.id]);
-        return [close, h('div', { class: 'sheet-kind' }, '中位テーマ'),
-          h('div', { class: 'sheet-crumbs' }, h('span', { style: 'color:' + n.domain.color }, '上位 ' + n.domain.title)),
-          h('h3', null, n.area.title),
-          jobRow('下位テーマ', '', us.filter((u) => u.state === 'learned').length, us.length, n.domain.color),
-          us.map((u) => h('div', { class: 'sheet-line' + (u.state === 'learned' ? ' ok' : '') }, (u.state === 'learned' ? '✓ ' : '・') + u.unit.title,
-            h('span', { class: 'small muted' }, u.unit.cells.length + 'マス' + ((u.unit.requires || []).length ? '・前提: ' + u.unit.requires.map((r) => L.units[r].unit.title).join('、') : ''))))];
-      }
-      if (n.kind === 'unit') {
-        const done = n.cells.filter((c) => cleared[c.id]).length;
-        return [close, h('div', { class: 'sheet-kind' }, '下位テーマ / アビリティ'), crumbs(n),
-          h('h3', null, n.unit.title),
-          h('p', { class: 'small' }, n.state === 'learned' ? 'アビリティ「' + n.unit.title + 'の心得」を習得済み' : 'すべてのマスをクリアすると、アビリティ「' + n.unit.title + 'の心得」を習得'),
-          jobRow('マス', '', done, n.cells.length, n.domain.color),
-          n.cells.map((c) => h('div', { class: 'sheet-line' + (cleared[c.id] ? ' ok' : '') }, (cleared[c.id] ? '✓ ' : '・') + c.title))];
+      if (n.kind === 'ability') {
+        const done = n.cells.filter((x) => c[x.id]).length;
+        const reqs = (n.ability.requires || []).map((r) => L.abilities[r].ability.title);
+        return [close, h('div', { class: 'sheet-kind' }, 'アビリティ'), typeBadge(n.type),
+          h('h3', null, n.ability.title),
+          h('div', { class: 'small muted' }, '分類: ' + n.ability.group + (reqs.length ? '　前提: ' + reqs.join('、') : '')),
+          h('p', { class: 'small' }, { learned: '習得済み', ready: S.challenge.NAMES.ability + 'に挑戦できます' }[n.state] || 'すべてのマスをクリアすると、' + S.challenge.NAMES.ability + 'に挑戦できます'),
+          progressRow('マス', done, n.cells.length, TYPES[n.type].color),
+          n.cells.map((x) => h('div', { class: 'sheet-line' + (c[x.id] ? ' ok' : '') }, (c[x.id] ? '✓ ' : '・') + x.title)),
+          h('div', { class: 'sheet-section' }, S.challenge.NAMES.ability + '（20問）'),
+          h('p', { class: 'small muted' }, 'スピード勝負の早押しから始まり、最後は難問が続きます。14問以上の正解でアビリティを習得。'),
+          abilityBattle(n)];
       }
       const stateText = { cleared: 'クリア済み', available: '挑戦できる', locked: 'まだ開いていない' }[n.state];
-      const prevCell = n.index ? L.units[n.unit.id].cells[n.index - 1] : null;
-      return [close, h('div', { class: 'sheet-kind' }, 'マス'), crumbs(n),
+      const an = L.abilities[n.ability.id];
+      const prevCell = n.index ? an.cells[n.index - 1] : null;
+      const qs = S.challenge.cellPool(job, n.ability, n.index);
+      return [close, h('div', { class: 'sheet-kind' }, 'マス'),
+        h('div', { class: 'sheet-crumbs' }, typeBadge(n.type), ' ' + n.ability.title),
         h('h3', null, n.title), h('span', { class: 'pill sheet-state ' + n.state }, stateText),
+        h('p', { class: 'small muted' }, '問題 ' + qs.length + '問' + (qs.length < S.challenge.MIN_CELL ? '（準備中）' : '・' + Math.min(qs.length, S.challenge.CELL_SIZE) + '問の' + S.challenge.NAMES.cell)),
         n.state === 'locked' ? h('p', { class: 'small muted' },
-          n.missingUnits.length ? '下位テーマ「' + n.missingUnits.join('」「') + '」のアビリティ習得が必要です。' : '直前のマス「' + prevCell.title + '」をクリアすると開きます。') : null,
-        n.state === 'available' ? [
-          h('button', { class: 'btn primary block', disabled: true }, '挑戦する（10問）'),
-          h('p', { class: 'small muted' }, '試作のため、問題はまだありません。初動・中盤・終盤の10問バトルで7問以上正解するとクリアになる予定です。')] : null,
-        n.state !== 'locked' ? h('button', { class: 'btn block demo-btn', onclick: () => {
-          if (cleared[n.id]) delete cleared[n.id]; else cleared[n.id] = Date.now();
-          S.save();
-          const learnedBefore = L.units[n.unit.id].state === 'learned';
-          select(n);
-          if (!learnedBefore && L.units[n.unit.id].state === 'learned') S.ui.toast('アビリティ「' + n.unit.title + 'の心得」を おぼえた！');
-        } }, n.state === 'cleared' ? '【試作】未クリアに戻す' : '【試作】クリアしたことにする') : null];
+          n.missing.length ? 'アビリティ「' + n.missing.join('」「') + '」の習得が必要です。' : '直前のマス「' + prevCell.title + '」をクリアすると開きます。') : null,
+        n.state !== 'locked' && qs.length >= S.challenge.MIN_CELL ? [
+          h('button', { class: 'btn primary block', onclick: () => S.challenge.startCell(job, n.ability, n.index, { back, onClear: () => clearCell(n) }) },
+            n.state === 'cleared' ? 'もう一度挑戦する' : '挑戦する'),
+          h('p', { class: 'small muted' }, '7割以上の正解でクリア。易しい問題から順に出ます。')] : null,
+        n.state !== 'locked' && qs.length < S.challenge.MIN_CELL ? h('button', { class: 'btn block demo-btn', onclick: () => {
+          if (c[n.id]) { delete c[n.id]; S.save(); select(n); } else clearCell(n, true);
+        } }, n.state === 'cleared' ? '【試作】未クリアに戻す' : '【試作】問題準備中のためクリア扱いにする') : null];
     }
 
-    function jobRow(title, desc, done, total, color) {
-      const pct = total ? Math.round((done / total) * 100) : 0;
-      return h('div', { class: 'job-row' + (done === total && total ? ' ok' : '') },
-        h('div', { class: 'job-head' }, h('strong', null, title), h('span', { class: 'small muted' }, done + '/' + total)),
-        desc ? h('div', { class: 'small muted' }, desc) : null,
-        h('div', { class: 'bar' }, h('div', { class: 'bar-fill', style: 'width:' + pct + '%;background:' + color })));
+    function back() { open(job.id); }
+
+    function clearCell(n, inPlace) {
+      const c = cleared(job.id);
+      const wasReady = cellsDone(job, n.ability);
+      c[n.id] = c[n.id] || Date.now();
+      S.save();
+      if (inPlace) select(n);
+      S.ui.toast(!wasReady && cellsDone(job, n.ability) ? 'アビリティ「' + n.ability.title + '」に 挑戦できるようになった！' : 'マス「' + n.title + '」を クリアした！');
+    }
+
+    function learnAbility(n, inPlace) {
+      const c = cleared(job.id);
+      const masteredBefore = jobProgress(job).mastered;
+      c['ab:' + n.ability.id] = c['ab:' + n.ability.id] || Date.now();
+      S.save();
+      if (inPlace) select(n);
+      S.ui.toast('アビリティ「' + n.ability.title + '」を おぼえた！');
+      if (!masteredBefore && jobProgress(job).mastered) setTimeout(() => S.ui.toast(job.title + ' を マスターした！'), 2300);
+    }
+
+    function abilityBattle(n) {
+      if (n.state !== 'ready' && n.state !== 'learned') return null;
+      const pool = S.challenge.abilityPool(job, n.ability);
+      if (pool.length >= S.challenge.MIN_ABILITY) {
+        return h('button', { class: 'btn primary block', onclick: () => S.challenge.startAbility(job, n.ability, { back, onClear: () => learnAbility(n) }) },
+          n.state === 'learned' ? 'もう一度挑戦する' : '挑戦する');
+      }
+      const c = cleared(job.id);
+      return h('button', { class: 'btn block demo-btn', onclick: () => {
+        if (c['ab:' + n.ability.id]) { delete c['ab:' + n.ability.id]; S.save(); select(n); } else learnAbility(n, true);
+      } }, n.state === 'learned' ? '【試作】未習得に戻す' : '【試作】問題準備中のため習得扱いにする');
     }
 
     // ---- 拡大縮小とドラッグ ----
@@ -330,12 +414,11 @@
         pinch = { d, mx, my };
       }
     });
-    const up = (e) => {
+    svg.addEventListener('pointerup', (e) => {
       if (pts.size === 1 && moved < 8 && downNode) select(downNode);
       pts.delete(e.pointerId);
       if (pts.size < 2) pinch = null;
-    };
-    svg.addEventListener('pointerup', up);
+    });
     svg.addEventListener('pointercancel', (e) => { pts.delete(e.pointerId); pinch = null; });
     svg.addEventListener('wheel', (e) => {
       e.preventDefault();
@@ -347,15 +430,15 @@
     center();
   }
 
-  function defs(cur) {
+  function defs() {
     return s('defs', null,
       s('radialGradient', { id: 'hubFill' },
         s('stop', { offset: '0%', 'stop-color': '#ffffff' }),
-        s('stop', { offset: '55%', 'stop-color': '#a5d8ff' }),
-        s('stop', { offset: '100%', 'stop-color': '#4c6ef5' })),
+        s('stop', { offset: '55%', 'stop-color': '#ffe8a3' }),
+        s('stop', { offset: '100%', 'stop-color': '#d9a400' })),
       s('radialGradient', { id: 'hubHalo' },
-        s('stop', { offset: '40%', 'stop-color': '#a5d8ff', 'stop-opacity': '.5' }),
-        s('stop', { offset: '100%', 'stop-color': '#a5d8ff', 'stop-opacity': '0' })));
+        s('stop', { offset: '40%', 'stop-color': '#ffe066', 'stop-opacity': '.45' }),
+        s('stop', { offset: '100%', 'stop-color': '#ffe066', 'stop-opacity': '0' })));
   }
 
   // 背景の星。毎回同じ配置になるよう簡易な疑似乱数を使う
@@ -363,11 +446,11 @@
     let seed = 7;
     const rnd = () => { seed = (seed * 16807) % 2147483647; return seed / 2147483647; };
     const g = s('g', { class: 'stars' });
-    for (let i = 0; i < 260; i++) {
-      g.append(s('circle', { cx: (rnd() - 0.5) * 2600, cy: (rnd() - 0.5) * 2600, r: rnd() * 1.6 + 0.3, opacity: (rnd() * 0.6 + 0.2).toFixed(2) }));
+    for (let i = 0; i < 420; i++) {
+      g.append(s('circle', { cx: (rnd() - 0.5) * 3800, cy: (rnd() - 0.5) * 3800, r: rnd() * 1.6 + 0.3, opacity: (rnd() * 0.6 + 0.2).toFixed(2) }));
     }
     return g;
   }
 
-  S.sphere = { open };
+  S.sphere = { open, openJobs, TYPES };
 })();

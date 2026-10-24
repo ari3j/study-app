@@ -1,4 +1,4 @@
-// 学習方法プラグイン: 4択（いばらの道では問題の hard 版を「すべて選べ」形式で出題する）
+// 学習方法プラグイン: 4択（難易度 Hard では問題の hard 版を「すべて選べ」形式で出題する）
 StudyApp.registerMode({
   id: 'quiz4',
   title: '4択',
@@ -33,7 +33,7 @@ StudyApp.registerMode({
     if (multi) actionBar.append(h('div', { class: 'action-buttons' }, submitBtn));
 
     append(el,
-      multi ? h('span', { class: 'pill ng multi-tag' }, 'いばらの道: 当てはまるものをすべて選ぶ') : null,
+      multi ? h('span', { class: 'pill ng multi-tag' }, '複数選択: 当てはまるものをすべて選ぶ') : null,
       h('div', { class: 'q-text', html: format(v.question) }),
       api.difficulty === 'easy' && q.hint ? h('div', { class: 'hint-box' }, h('span', { class: 'point-label' }, 'ヒント'), h('span', { html: format(q.hint) })) : null,
       h('div', { class: 'choices' }, items.map((x) => x.wrap)),
@@ -51,6 +51,7 @@ StudyApp.registerMode({
     function submit(positions) {
       if (answered || !positions.length) return;
       answered = true;
+      if (api.answered) api.answered();
       const chosen = new Set(positions.map((p) => items[p]));
       let missed = 0;
       let extra = 0;

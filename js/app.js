@@ -85,6 +85,7 @@
 
     const G = S.game;
     const diff = G.difficulty();
+    const selectable = G.DIFFICULTIES.filter((d) => d.enabled);
     show(
       header('Study', null, h('button', { class: 'icon-btn', onclick: renderData, 'aria-label': 'データ管理' }, '⚙')),
       h('main', { class: 'container' },
@@ -95,13 +96,14 @@
           h('button', { class: 'card stat medal-stat', onclick: renderMedals },
             h('div', { class: 'stat-value' }, h('span', { class: 'medal-icon' }), String(G.state().medals)),
             h('div', { class: 'small muted' }, '小さなメダル ›'))),
-        h('h2', { class: 'section-title' }, '冒険の難易度'),
-        h('div', { class: 'segmented' }, G.DIFFICULTIES.map((d) =>
-          h('button', { class: d === diff ? 'active' : '', onclick: () => { G.setDifficulty(d.id); renderHome(); } }, d.title))),
-        h('p', { class: 'small muted diff-desc' }, diff.description),
-        [...S.curricula.values()].map((cur) => h('button', { class: 'card sphere-entry', onclick: () => S.sphere.open(cur.id) },
-          h('div', { class: 'sphere-entry-title' }, cur.title + ' スフィア盤'),
-          h('div', { class: 'small' }, '試作版: 見た目と進み方の確認用'))),
+        selectable.length > 1 ? [
+          h('h2', { class: 'section-title' }, '難易度'),
+          h('div', { class: 'segmented' }, selectable.map((d) =>
+            h('button', { class: d === diff ? 'active' : '', onclick: () => { G.setDifficulty(d.id); renderHome(); } }, d.title))),
+          h('p', { class: 'small muted diff-desc' }, diff.description)] : null,
+        h('button', { class: 'card sphere-entry', onclick: S.sphere.openJobs },
+          h('div', { class: 'sphere-entry-title' }, 'ジョブとスフィア盤'),
+          h('div', { class: 'small' }, '試作版: 見た目と進み方の確認用')),
         h('h2', { class: 'section-title' }, '学習テーマ'),
         cards.length ? h('div', { class: 'stack' }, cards) : h('p', { class: 'muted' }, 'テーマが登録されていません。plugins.js を確認してください。'),
         methodNote()));
@@ -366,7 +368,7 @@
             h('li', null, '正解するとランダムで手に入る（セッション内の初回の正解のみ）'),
             h('li', null, '問題の ★ が多いほど出やすい'),
             h('li', null, '一度正解したことがある問題は出にくい'),
-            h('li', null, '冒険の難易度が「バッチリ冒険」のとき最も出やすい'))),
+            G.DIFFICULTIES.filter((d) => d.enabled).length > 1 ? h('li', null, '難易度が Normal のとき最も出やすい') : null)),
         h('h2', { class: 'section-title' }, 'ごほうび（リアル）'),
         h('div', { class: 'card list' }, rewardRows,
           h('div', { class: 'row add-row' }, nameInput, costInput, h('button', { class: 'btn small-btn', onclick: addReward }, '追加'))),
@@ -448,5 +450,5 @@
   }
 
   S.start = () => { S.game.applySkin(); renderHome(); };
-  S.ui = { h, append, shareToAI, show, header, renderHome, toast };
+  S.ui = { h, append, shareToAI, show, header, renderHome, toast, bar, setKeyHandler: (fn) => { keyHandler = fn; } };
 })();
