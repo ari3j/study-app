@@ -99,6 +99,9 @@
         h('div', { class: 'segmented' }, G.DIFFICULTIES.map((d) =>
           h('button', { class: d === diff ? 'active' : '', onclick: () => { G.setDifficulty(d.id); renderHome(); } }, d.title))),
         h('p', { class: 'small muted diff-desc' }, diff.description),
+        [...S.curricula.values()].map((cur) => h('button', { class: 'card sphere-entry', onclick: () => S.sphere.open(cur.id) },
+          h('div', { class: 'sphere-entry-title' }, cur.title + ' スフィア盤'),
+          h('div', { class: 'small' }, '試作版: 見た目と進み方の確認用'))),
         h('h2', { class: 'section-title' }, '学習テーマ'),
         cards.length ? h('div', { class: 'stack' }, cards) : h('p', { class: 'muted' }, 'テーマが登録されていません。plugins.js を確認してください。'),
         methodNote()));
@@ -445,5 +448,5 @@
   }
 
   S.start = () => { S.game.applySkin(); renderHome(); };
-  S.ui = { h, append, shareToAI };
+  S.ui = { h, append, shareToAI, show, header, renderHome, toast };
 })();

@@ -9,4 +9,7 @@ StudyApp.boot({
     'themes/harness-design.js',
     'themes/agentic-coding.js',
   ],
+  curricula: [
+    'curriculum/genai.js',
+  ],
 });

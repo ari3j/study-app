@@ -14,6 +14,15 @@
 
   const themes = new Map();
   const modes = new Map();
+  const curricula = new Map();
+
+  function registerCurriculum(cur) {
+    if (!cur || !cur.id || !Array.isArray(cur.domains)) {
+      console.error('registerCurriculum: id と domains は必須です', cur);
+      return;
+    }
+    curricula.set(cur.id, cur);
+  }
 
   function registerTheme(theme) {
     if (!theme || !theme.id || !theme.title || !Array.isArray(theme.questions)) {
@@ -42,7 +51,7 @@
   }
 
   async function boot(config) {
-    for (const src of [...(config.modes || []), ...(config.themes || [])]) await loadScript(src);
+    for (const src of [...(config.modes || []), ...(config.themes || []), ...(config.curricula || [])]) await loadScript(src);
     StudyApp.start();
   }
 
@@ -233,7 +242,7 @@
   }
 
   window.StudyApp = {
-    registerTheme, registerMode, boot, themes, modes,
+    registerTheme, registerMode, registerCurriculum, boot, themes, modes, curricula,
     record, getCard, themeStats, buildSession, streak, todayCount,
     isPracticeDone, togglePractice, themeLevel,
     exportData, importData, resetTheme, getPref, setPref, state, save,
