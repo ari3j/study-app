@@ -33,17 +33,43 @@
   }
 
   // ---- 進行状況 ----
-  function cleared(jobId) {
+  // ---- 熟練度 ----
+  // 全アビリティをラーニングすると熟練度が1つ上がり、次の周回に進む。2周目以降は全マスが開放され、次のレベルの問題に挑戦する
+  // 出題形式の中身は js/challenge.js の LEVELS
+  const PROFICIENCY = [
+    { name: '知っている', format: '4択' },
+    { name: '見極められる', format: 'すべて選べ' },
+    { name: '理由を説明できる', format: '答えと理由の二段階' },
+    { name: '誤りを見抜ける', format: '誤りを見つける' },
+    { name: '自分の言葉で語れる', format: '記述して自己採点' },
+  ];
+  const MAX_LEVEL = PROFICIENCY.length;
+  // 上級ジョブに挑戦するために、条件のジョブで必要な熟練度
+  const QUALIFY_LEVEL = 4;
+
+  function jobState(jobId) {
     const st = S.state('sphere');
-    return st[jobId] || (st[jobId] = {});
+    if (!st[jobId] || !st[jobId].cleared) st[jobId] = { proficiency: 0, cleared: {} };
+    return st[jobId];
   }
+  function cleared(jobId) { return jobState(jobId).cleared; }
+  function proficiency(job) { return jobState(job.id).proficiency; }
+  // 挑戦中のレベル（熟練度が最大なら null）
+  function currentLevel(job) { const p = proficiency(job); return p < MAX_LEVEL ? p + 1 : null; }
+  function profStars(n) { return '\u2606'.repeat(MAX_LEVEL - n) + '\u2605'.repeat(n); }
+  function levelLabel(lv) { return 'Lv' + lv + ' ' + PROFICIENCY[lv - 1].name; }
 
   // マスをすべてクリアするとアビリティのマスに挑戦でき、そこをクリアするとアビリティを習得する
   function cellsDone(job, ab) { const c = cleared(job.id); return ab.cells.every((_, i) => c[ab.id + '-' + i]); }
-  function abilityLearned(job, ab) { return !!cleared(job.id)['ab:' + ab.id]; }
+  function abilityLearned(job, ab) { return currentLevel(job) === null || !!cleared(job.id)['ab:' + ab.id]; }
   function jobProgress(job) {
     const done = job.abilities.filter((ab) => abilityLearned(job, ab)).length;
-    return { done, total: job.abilities.length, mastered: job.abilities.length > 0 && done === job.abilities.length };
+    return { done, total: job.abilities.length, mastered: proficiency(job) >= MAX_LEVEL, qualified: proficiency(job) >= QUALIFY_LEVEL };
+  }
+
+  function resetJob(jobId) {
+    delete S.state('sphere')[jobId];
+    S.resetRecords(jobId);
   }
 
   // ---- 配置 ----
@@ -89,9 +115,7 @@
           const cells = ab.cells.map((cell, ci) => {
             const t = (ci + 1) / (ab.cells.length + 1);
             const off = (ci % 2 ? 1 : -1) * 17;
-            const title = typeof cell === 'string' ? cell : cell.title;
-            const from = typeof cell === 'string' ? [] : cell.from || [];
-            return add({ id: ab.id + '-' + ci, kind: 'cell', title, from, index: ci, ability: ab, type, x: prev.x + dx * t - (dy / len) * off, y: prev.y + dy * t + (dx / len) * off, r: 11 });
+            return add({ id: ab.id + '-' + ci, kind: 'cell', title: cell, index: ci, ability: ab, type, x: prev.x + dx * t - (dy / len) * off, y: prev.y + dy * t + (dx / len) * off, r: 11 });
           });
           const an = add({ id: 'ab-' + ab.id, kind: 'ability', ability: ab, type, x: ax, y: ay, r: 22, cells, prev: ai ? g.abilities[ai - 1] : null });
           abilities[ab.id] = an;
@@ -111,12 +135,15 @@
   // layout はアビリティのマスをアビリティより先に追加しているので、この順で評価すれば足りる
   function evaluate(job, L) {
     const c = cleared(job.id);
+    const lv = currentLevel(job);
+    const allOpen = lv === null || lv >= 2;
     for (const n of L.nodes) {
       if (n.kind === 'hub' || n.kind === 'type') { n.state = 'lit'; continue; }
       if (n.kind === 'ability') {
-        n.state = abilityLearned(job, n.ability) ? 'learned' : cellsDone(job, n.ability) ? 'ready' : n.cells.some((x) => x.state !== 'locked') ? 'open' : 'locked';
+        n.state = abilityLearned(job, n.ability) ? 'learned' : allOpen || cellsDone(job, n.ability) ? 'ready' : n.cells.some((x) => x.state !== 'locked') ? 'open' : 'locked';
         continue;
       }
+      if (allOpen) { n.missing = []; n.state = c[n.id] || lv === null ? 'cleared' : 'available'; continue; }
       const an = L.abilities[n.ability.id];
       const missing = [];
       if (an.prev && !abilityLearned(job, an.prev)) missing.push(an.prev.title);
@@ -127,35 +154,37 @@
     }
   }
 
-  // ---- ジョブ一覧 ----
-  function openJobs() {
-    const { h, show, header, renderHome } = S.ui;
+  // ---- ジョブ一覧（トップページに表示する） ----
+  function jobList() {
+    const { h } = S.ui;
     const all = [...S.jobs.values()];
     const card = (job) => {
       const p = jobProgress(job);
       const reqs = (job.requires || []).map((id) => S.jobs.get(id)).filter(Boolean);
-      const unlocked = reqs.every((r) => jobProgress(r).mastered);
+      const unlocked = reqs.every((r) => jobProgress(r).qualified);
       const playable = !job.planned && unlocked;
       const counts = TYPE_ORDER.map((t) => ({ t, n: job.abilities.filter((ab) => ab.type === t).length }));
       return h('button', { class: 'card job-card' + (playable ? '' : ' disabled'), disabled: !playable, onclick: () => open(job.id) },
         h('div', { class: 'job-card-head' },
           h('span', { class: 'job-card-title' }, job.title),
           job.planned ? h('span', { class: 'pill' }, '準備中') : p.mastered ? h('span', { class: 'pill ok' }, 'マスター') : null),
+        job.planned ? null : h('div', { class: 'job-prof' }, h('span', { class: 'prof-stars' }, profStars(proficiency(job))),
+          h('span', { class: 'small muted' }, currentLevel(job) ? levelLabel(currentLevel(job)) + ' に挑戦中' : '熟練度 最大')),
         h('div', { class: 'small muted' }, job.description),
         job.abilities.length ? [
           h('div', { class: 'type-bar' }, counts.filter((x) => x.n).map((x) => h('span', { style: 'flex:' + x.n + ';background:' + TYPES[x.t].color }))),
           h('div', { class: 'type-legend' }, counts.filter((x) => x.n).map((x) => h('span', null, h('i', { style: 'background:' + TYPES[x.t].color }), TYPES[x.t].label + ' ' + x.n))),
-          h('div', { class: 'small muted' }, 'アビリティ習得 ' + p.done + '/' + p.total)] : null,
-        reqs.length ? h('div', { class: 'job-reqs' }, '挑戦条件: ', reqs.map((r) => h('span', { class: 'req' + (jobProgress(r).mastered ? ' ok' : '') }, (jobProgress(r).mastered ? '✓ ' : '') + r.title + ' をマスター'))) : null);
+          h('div', { class: 'small muted' }, '今の周回のアビリティラーニング ' + p.done + '/' + p.total)] : null,
+        reqs.length ? h('div', { class: 'job-reqs' }, '挑戦条件: ', reqs.map((r) => h('span', { class: 'req' + (jobProgress(r).qualified ? ' ok' : '') }, (jobProgress(r).qualified ? '✓ ' : '') + r.title + ' 熟練度' + profStars(QUALIFY_LEVEL)))) : null);
     };
-    show(
-      header('ジョブ', renderHome),
-      h('main', { class: 'container' },
-        h('p', { class: 'small muted' }, 'ジョブごとにスフィア盤があります。マスを進めてアビリティを覚え、すべて覚えるとそのジョブをマスター。複数のジョブをマスターすると上級ジョブに挑戦できます。'),
-        h('h2', { class: 'section-title' }, '基本ジョブ'),
-        h('div', { class: 'stack' }, all.filter((j) => j.tier !== 'advanced').map(card)),
-        h('h2', { class: 'section-title' }, '上級ジョブ'),
-        h('div', { class: 'stack' }, all.filter((j) => j.tier === 'advanced').map(card))));
+    return [
+      h('h2', { class: 'section-title' }, 'ジョブを選ぶ'),
+      h('p', { class: 'small muted' }, 'ジョブごとにスフィア盤があります。全アビリティをラーニングすると熟練度が1つ上がり、全マスが開放された次の周回で、より深い理解を問う問題に挑戦します。'),
+      h('div', { class: 'stack' }, all.filter((j) => j.tier !== 'advanced').map(card)),
+      h('h2', { class: 'section-title' }, '上級ジョブ'),
+      h('p', { class: 'small muted' }, '条件のジョブをすべて熟練度' + profStars(QUALIFY_LEVEL) + '以上にすると挑戦できます。'),
+      h('div', { class: 'stack' }, all.filter((j) => j.tier === 'advanced').map(card)),
+    ];
   }
 
   // ---- スフィア盤 ----
@@ -174,16 +203,17 @@
     svg.append(defs(), world);
 
     const sheet = h('div', { class: 'sphere-sheet hidden' });
-    const wrap = h('div', { class: 'sphere-wrap' }, svg,
+    const banner = h('div', { class: 'sphere-round' });
+    const wrap = h('div', { class: 'sphere-wrap' }, svg, banner,
       h('div', { class: 'sphere-controls' },
         h('button', { onclick: () => zoomAt(1.3), 'aria-label': '拡大' }, '+'),
         h('button', { onclick: () => zoomAt(1 / 1.3), 'aria-label': '縮小' }, '−'),
         h('button', { onclick: center, 'aria-label': '中央へ' }, '◎')),
       sheet);
     const resetBtn = h('button', { class: 'icon-btn', 'aria-label': '試作の進行をリセット', onclick: () => {
-      if (confirm('このジョブの進行（試作）をリセットしますか？')) { S.state('sphere')[job.id] = {}; S.save(); closeSheet(); }
+      if (confirm('このジョブの進行・熟練度・回答の記録をリセットしますか？')) { resetJob(job.id); closeSheet(); }
     } }, '↺');
-    const top = header(job.title + ' のスフィア盤', openJobs, resetBtn);
+    const top = header(job.title + ' のスフィア盤', S.ui.renderHome, resetBtn);
     show(top, wrap);
     wrap.style.top = top.offsetHeight + 'px';
 
@@ -191,15 +221,23 @@
 
     function redraw() {
       evaluate(job, L);
-      gEdges.replaceChildren(...L.edges.map((e) => {
+      const lv = currentLevel(job);
+      banner.replaceChildren(h('span', { class: 'prof-stars' }, profStars(proficiency(job))),
+        h('span', null, lv ? levelLabel(lv) + '（' + PROFICIENCY[lv - 1].format + '）' : 'マスター'));
+      // 選んだマスのアビリティの前提条件（点線）と、その前提元のアビリティを強調する
+      const focus = selected && selected.ability ? selected.ability : null;
+      const edgeEls = L.edges.map((e) => {
         const lit = isLit(e.a) && isLit(e.b);
+        const hl = e.kind === 'requires' && focus && e.b.ability === focus;
         const color = TYPES[e.b.type || e.a.type] ? TYPES[e.b.type || e.a.type].color : '#fff';
         return s('line', {
           x1: e.a.x, y1: e.a.y, x2: e.b.x, y2: e.b.y,
-          class: 'sg-edge ' + e.kind + (lit && e.kind === 'path' ? ' lit' : ''),
-          style: lit ? 'stroke:' + color + ';color:' + color : null,
+          class: 'sg-edge ' + e.kind + (lit && e.kind === 'path' ? ' lit' : '') + (hl ? ' hl' : ''),
+          style: lit && !hl ? 'stroke:' + color + ';color:' + color : null,
         });
-      }));
+      });
+      // 強調する線は最後に描いて、他の線の下に隠れないようにする
+      gEdges.replaceChildren(...edgeEls.filter((el) => !el.classList.contains('hl')), ...edgeEls.filter((el) => el.classList.contains('hl')));
       gNodes.replaceChildren(...L.nodes.map(drawNode));
       gLabels.replaceChildren(...L.labels.map((l) => s('text', { x: l.x, y: l.y, class: 'lbl-group', fill: l.color }, l.text)));
     }
@@ -208,7 +246,8 @@
 
     function drawNode(n) {
       const t = TYPES[n.type];
-      const g = s('g', { class: 'sg-node ' + n.kind + ' ' + n.state + (selected === n ? ' selected' : ''), 'data-id': n.id, transform: 'translate(' + n.x + ' ' + n.y + ')', style: '--c:' + (t ? t.color : '#fff') });
+      const reqSrc = n.kind === 'ability' && selected && selected.ability && (selected.ability.requires || []).includes(n.ability.id);
+      const g = s('g', { class: 'sg-node ' + n.kind + ' ' + n.state + (selected === n ? ' selected' : '') + (reqSrc ? ' req-src' : ''), 'data-id': n.id, transform: 'translate(' + n.x + ' ' + n.y + ')', style: '--c:' + (t ? t.color : '#fff') });
       if (n.kind === 'hub') {
         g.append(
           s('circle', { r: n.r + 22, class: 'halo', fill: 'url(#hubHalo)' }),
@@ -270,9 +309,14 @@
       if (n.kind === 'hub') {
         const p = jobProgress(job);
         const advanced = [...S.jobs.values()].filter((j) => (j.requires || []).includes(job.id));
+        const pf = proficiency(job);
         return [close, h('div', { class: 'sheet-kind' }, 'ジョブ'), h('h3', null, job.title),
           h('p', { class: 'small muted' }, job.description),
-          progressRow('アビリティ習得', p.done, p.total, '#ffd43b'),
+          h('div', { class: 'sheet-section' }, '熟練度'),
+          h('div', { class: 'job-prof' }, h('span', { class: 'prof-stars big' }, profStars(pf)), h('span', null, pf ? levelLabel(pf) : 'まだ熟練度はありません')),
+          PROFICIENCY.map((x, i) => h('div', { class: 'sheet-line' + (i < pf ? ' ok' : '') + (i === pf ? ' now' : '') },
+            (i < pf ? '✓ ' : i === pf ? '▶ ' : '・') + levelLabel(i + 1), h('span', { class: 'small muted' }, x.format + (i === pf ? '（挑戦中）' : '')))),
+          p.mastered ? null : progressRow('今の周回のアビリティラーニング', p.done, p.total, '#ffd43b'),
           h('div', { class: 'sheet-section' }, '系統ごとのアビリティ'),
           TYPE_ORDER.filter((t) => abs.some((a) => a.type === t)).map((t) => {
             const list = abs.filter((a) => a.type === t);
@@ -297,27 +341,30 @@
           h('p', { class: 'small' }, { learned: '習得済み', ready: S.challenge.NAMES.ability + 'に挑戦できます' }[n.state] || 'すべてのマスをクリアすると、' + S.challenge.NAMES.ability + 'に挑戦できます'),
           progressRow('マス', done, n.cells.length, TYPES[n.type].color),
           n.cells.map((x) => h('div', { class: 'sheet-line' + (c[x.id] ? ' ok' : '') }, (c[x.id] ? '✓ ' : '・') + x.title)),
-          h('div', { class: 'sheet-section' }, S.challenge.NAMES.ability + '（20問）'),
-          h('p', { class: 'small muted' }, 'スピード勝負の早押しから始まり、最後は難問が続きます。14問以上の正解でアビリティを習得。'),
+          h('div', { class: 'sheet-section' }, S.challenge.NAMES.ability + '（' + S.challenge.ABILITY_SIZE + '問）'),
+          h('p', { class: 'small muted' }, 'スピード勝負の早押しから始まり、最後は難問が続きます。' + S.challenge.need(S.challenge.ABILITY_SIZE) + '問以上の正解でアビリティを習得。'),
           abilityBattle(n)];
       }
       const stateText = { cleared: 'クリア済み', available: '挑戦できる', locked: 'まだ開いていない' }[n.state];
       const an = L.abilities[n.ability.id];
       const prevCell = n.index ? an.cells[n.index - 1] : null;
-      const qs = S.challenge.cellPool(job, n.ability, n.index);
+      const lv = currentLevel(job);
+      const qs = lv ? S.challenge.cellPool(job, n.ability, n.index, lv) : [];
+      const reqs = (n.ability.requires || []).map((r) => L.abilities[r].ability.title);
       return [close, h('div', { class: 'sheet-kind' }, 'マス'),
         h('div', { class: 'sheet-crumbs' }, typeBadge(n.type), ' ' + n.ability.title),
+        reqs.length ? h('div', { class: 'small muted' }, '前提アビリティ: ' + reqs.join('、')) : null,
         h('h3', null, n.title), h('span', { class: 'pill sheet-state ' + n.state }, stateText),
-        h('p', { class: 'small muted' }, '問題 ' + qs.length + '問' + (qs.length < S.challenge.MIN_CELL ? '（準備中）' : '・' + Math.min(qs.length, S.challenge.CELL_SIZE) + '問の' + S.challenge.NAMES.cell)),
+        lv ? h('p', { class: 'small muted' }, levelLabel(lv) + ' の問題 ' + qs.length + '問' + (qs.length < S.challenge.MIN_CELL ? '（準備中）' : '・' + Math.min(qs.length, S.challenge.CELL_SIZE) + '問の' + S.challenge.NAMES.cell)) : null,
         n.state === 'locked' ? h('p', { class: 'small muted' },
           n.missing.length ? 'アビリティ「' + n.missing.join('」「') + '」の習得が必要です。' : '直前のマス「' + prevCell.title + '」をクリアすると開きます。') : null,
-        n.state !== 'locked' && qs.length >= S.challenge.MIN_CELL ? [
-          h('button', { class: 'btn primary block', onclick: () => S.challenge.startCell(job, n.ability, n.index, { back, onClear: () => clearCell(n) }) },
+        lv && n.state !== 'locked' && qs.length >= S.challenge.MIN_CELL ? [
+          h('button', { class: 'btn primary block', onclick: () => S.challenge.startCell(job, n.ability, n.index, lv, { back, onClear: () => clearCell(n) }) },
             n.state === 'cleared' ? 'もう一度挑戦する' : '挑戦する'),
-          h('p', { class: 'small muted' }, '7割以上の正解でクリア。易しい問題から順に出ます。')] : null,
-        n.state !== 'locked' && qs.length < S.challenge.MIN_CELL ? h('button', { class: 'btn block demo-btn', onclick: () => {
+          h('p', { class: 'small muted' }, S.challenge.need(Math.min(qs.length, S.challenge.CELL_SIZE)) + '問以上の正解でクリア。易しい問題から順に出ます。')] : null,
+        lv && n.state !== 'locked' && qs.length < S.challenge.MIN_CELL ? h('button', { class: 'btn block demo-btn', onclick: () => {
           if (c[n.id]) { delete c[n.id]; S.save(); select(n); } else clearCell(n, true);
-        } }, n.state === 'cleared' ? '【試作】未クリアに戻す' : '【試作】問題準備中のためクリア扱いにする') : null];
+        } }, n.state === 'cleared' ? '【試作】未クリアに戻す' : '【試作】' + levelLabel(lv) + ' の問題は準備中のためクリア扱いにする') : null];
     }
 
     function back() { open(job.id); }
@@ -332,26 +379,33 @@
     }
 
     function learnAbility(n, inPlace) {
-      const c = cleared(job.id);
-      const masteredBefore = jobProgress(job).mastered;
-      c['ab:' + n.ability.id] = c['ab:' + n.ability.id] || Date.now();
+      const st = jobState(job.id);
+      st.cleared['ab:' + n.ability.id] = st.cleared['ab:' + n.ability.id] || Date.now();
+      S.ui.toast('アビリティ「' + n.ability.title + '」を おぼえた！');
+      if (job.abilities.every((ab) => st.cleared['ab:' + ab.id])) {
+        st.proficiency++;
+        st.cleared = {};
+        setTimeout(() => S.ui.toast(job.title + ' の熟練度が 上がった！ ' + profStars(st.proficiency)), 2300);
+        setTimeout(() => S.ui.toast(st.proficiency < MAX_LEVEL
+          ? '全マスが 開放された！ 次は ' + levelLabel(st.proficiency + 1)
+          : job.title + ' を マスターした！'), 4600);
+      }
       S.save();
       if (inPlace) select(n);
-      S.ui.toast('アビリティ「' + n.ability.title + '」を おぼえた！');
-      if (!masteredBefore && jobProgress(job).mastered) setTimeout(() => S.ui.toast(job.title + ' を マスターした！'), 2300);
     }
 
     function abilityBattle(n) {
-      if (n.state !== 'ready' && n.state !== 'learned') return null;
-      const pool = S.challenge.abilityPool(job, n.ability);
+      const lv = currentLevel(job);
+      if (!lv || (n.state !== 'ready' && n.state !== 'learned')) return null;
+      const pool = S.challenge.abilityPool(job, n.ability, lv);
       if (pool.length >= S.challenge.MIN_ABILITY) {
-        return h('button', { class: 'btn primary block', onclick: () => S.challenge.startAbility(job, n.ability, { back, onClear: () => learnAbility(n) }) },
+        return h('button', { class: 'btn primary block', onclick: () => S.challenge.startAbility(job, n.ability, lv, { back, onClear: () => learnAbility(n) }) },
           n.state === 'learned' ? 'もう一度挑戦する' : '挑戦する');
       }
       const c = cleared(job.id);
       return h('button', { class: 'btn block demo-btn', onclick: () => {
         if (c['ab:' + n.ability.id]) { delete c['ab:' + n.ability.id]; S.save(); select(n); } else learnAbility(n, true);
-      } }, n.state === 'learned' ? '【試作】未習得に戻す' : '【試作】問題準備中のため習得扱いにする');
+      } }, n.state === 'learned' ? '【試作】未習得に戻す' : '【試作】' + levelLabel(lv) + ' の問題は準備中のため習得扱いにする');
     }
 
     // ---- 拡大縮小とドラッグ ----
@@ -452,5 +506,5 @@
     return g;
   }
 
-  S.sphere = { open, openJobs, TYPES };
+  S.sphere = { open, jobList, resetJob, TYPES, PROFICIENCY };
 })();

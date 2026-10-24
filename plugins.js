@@ -1,13 +1,9 @@
-// 学習方法（modes）と学習テーマ（themes）のプラグイン一覧。
+// 学習方法（modes）・ジョブ（jobs）・マスの問題（questions）のプラグイン一覧。
 // 追加するときはファイルを置いてここにパスを1行足すだけでよい。仕様は README.md を参照。
 StudyApp.boot({
   modes: [
     'modes/quiz4.js',
     'modes/explain.js',
-  ],
-  themes: [
-    'themes/harness-design.js',
-    'themes/agentic-coding.js',
   ],
   jobs: [
     'jobs/genai.js',
@@ -19,6 +15,8 @@ StudyApp.boot({
     'questions/genai/business.js',
     'questions/genai/gov-risk.js',
     'questions/genai/agent-basic.js',
+    'questions/genai/agent-dev.js',
     'questions/genai/ai-dev.js',
+    'questions/genai/agentic-coding.js',
   ],
 });

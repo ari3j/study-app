@@ -3,7 +3,6 @@
 // group は分類名（表示のみ）。同じ group のアビリティは定義順に1本の道でつながり、前のアビリティを覚えると次が開く。
 // requires は他の道の前提アビリティ。
 // cells はマス（1マス = 10問のチャレンジ）。すべてのマスをクリアすると、アビリティのマス（20問）に挑戦できる。
-// マスは文字列か { title, from }。from は既存テーマの問題（'テーマid:カテゴリid'）。
 StudyApp.registerJob({
   id: 'genai',
   title: '生成AI',
@@ -19,9 +18,10 @@ StudyApp.registerJob({
     { id: 'model-types', type: 'theory', group: 'LLMのしくみ', title: '言語モデルの種類と選定',
       cells: ['オープンウェイトとクローズドウェイト', 'SLMと用途に応じた選び方'] },
 
-    { id: 'knowledge', type: 'theory', group: '外部知識とマルチモーダル', title: '外部知識の与え方', requires: ['llm-mechanism'],
+    { id: 'knowledge', type: 'theory', group: '外部知識の活用', title: '外部知識の与え方', requires: ['llm-mechanism'],
       cells: ['Web検索・APIとの連携', 'In-Context Learning と RAG', 'ファインチューニング'] },
-    { id: 'multimodal', type: 'theory', group: '外部知識とマルチモーダル', title: 'マルチモーダル',
+
+    { id: 'multimodal', type: 'theory', group: 'マルチモーダル', title: 'マルチモーダル', requires: ['llm-mechanism'],
       cells: ['画像の生成と理解', '音声・動画'] },
 
     // ---- 魔法（活用） ----
@@ -63,19 +63,11 @@ StudyApp.registerJob({
     { id: 'agent-basic', type: 'build', group: 'AIエージェント', title: 'AIエージェントの基本',
       cells: ['エージェントの条件と代表的なサービス', '構成と分類', 'MCP と A2A'] },
     { id: 'agent-dev', type: 'build', group: 'AIエージェント', title: 'エージェント開発', requires: ['api'],
-      cells: [
-        '開発ツール',
-        { title: 'ハーネス設計: ループとツール', from: ['harness-design:basics', 'harness-design:loop', 'harness-design:tools'] },
-        { title: 'ハーネス設計: コンテキストと安全性', from: ['harness-design:context', 'harness-design:safety', 'harness-design:eval'] },
-      ] },
+      cells: ['開発ツール', 'ハーネス設計: ループとツール', 'ハーネス設計: コンテキストと安全性'] },
 
     { id: 'ai-dev', type: 'build', group: 'システム開発とAI', title: 'AI時代のシステム開発',
       cells: ['AI Native 開発と品質', '従来型開発へのAI適用', 'AI-Native 開発の各フェーズ'] },
     { id: 'agentic-coding', type: 'build', group: 'システム開発とAI', title: 'Agentic Coding', requires: ['prompt-basic'],
-      cells: [
-        { title: 'ワークフローと指示の出し方', from: ['agentic-coding:workflow', 'agentic-coding:prompt'] },
-        { title: 'コンテキストと検証', from: ['agentic-coding:context', 'agentic-coding:verify'] },
-        { title: '並列化と安全な運用', from: ['agentic-coding:parallel', 'agentic-coding:safety'] },
-      ] },
+      cells: ['ワークフローと指示の出し方', 'コンテキストと検証', '並列化と安全な運用'] },
   ],
 });

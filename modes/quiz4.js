@@ -1,8 +1,7 @@
-// 学習方法プラグイン: 4択（難易度 Hard では問題の hard 版を「すべて選べ」形式で出題する）
+// 学習方法プラグイン: 4択（api.hard のときは問題の hard 版を「すべて選べ」形式で出題する）
 StudyApp.registerMode({
   id: 'quiz4',
   title: '4択',
-  level: 1,
   gradeLabels: { confident: '確信して正解', unsure: '迷って正解', wrong: '不正解' },
   supports: (q) => q.type === 'choice' && Array.isArray(q.choices) && q.choices.length === 4,
 
@@ -10,7 +9,7 @@ StudyApp.registerMode({
     const { h, append } = StudyApp.ui;
     const { format, shuffle } = StudyApp.util;
     const LABELS = ['A', 'B', 'C', 'D', 'E', 'F'];
-    const multi = api.difficulty === 'hard' && !!q.hard;
+    const multi = !!api.hard && !!q.hard;
     const v = multi
       ? { question: q.hard.question, choices: q.hard.choices, answers: q.hard.answers, explanations: q.hard.explanations || [] }
       : { question: q.question, choices: q.choices, answers: [q.answer], explanations: q.explanations || [] };
@@ -35,7 +34,6 @@ StudyApp.registerMode({
     append(el,
       multi ? h('span', { class: 'pill ng multi-tag' }, '複数選択: 当てはまるものをすべて選ぶ') : null,
       h('div', { class: 'q-text', html: format(v.question) }),
-      api.difficulty === 'easy' && q.hint ? h('div', { class: 'hint-box' }, h('span', { class: 'point-label' }, 'ヒント'), h('span', { html: format(q.hint) })) : null,
       h('div', { class: 'choices' }, items.map((x) => x.wrap)),
       feedback,
       actionBar,
@@ -101,7 +99,7 @@ StudyApp.registerMode({
       const line = (it) => LABELS[items.indexOf(it)] + '. ' + v.choices[it.ci];
       const answerItems = items.filter((it) => v.answers.includes(it.ci));
       return [
-        '学習アプリ「' + api.theme.title + '」の' + (multi ? '複数選択' : '4択') + '問題について質問があります。',
+        '学習アプリ「' + api.job.title + '」の' + (multi ? '複数選択' : '4択') + '問題について質問があります。',
         '',
         '【問題】',
         v.question,

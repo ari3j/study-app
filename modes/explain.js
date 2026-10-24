@@ -2,14 +2,15 @@
 StudyApp.registerMode({
   id: 'explain',
   title: '説明',
-  level: 2,
   gradeLabels: { confident: '説明できた', unsure: '一部だけ', wrong: '説明できず' },
+  // 自己採点なので「言えた」だけを正解として数える
+  passes: (grade) => grade === 'confident',
   supports: (q) => q.type === 'choice' && Array.isArray(q.choices),
 
   render(el, q, api) {
     const { h, append } = StudyApp.ui;
     const { format } = StudyApp.util;
-    const multi = api.difficulty === 'hard' && !!q.hard;
+    const multi = !!api.hard && !!q.hard;
     const v = multi
       ? { question: q.hard.question, choices: q.hard.choices, answers: q.hard.answers, explanations: q.hard.explanations || [] }
       : { question: q.question, choices: q.choices, answers: [q.answer], explanations: q.explanations || [] };
@@ -30,7 +31,6 @@ StudyApp.registerMode({
       h('p', { class: 'small muted' }, multi
         ? '選択肢は出ません。当てはまるものを自分で考え、できるだけ多く理由とともに挙げてください。'
         : '選択肢は出ません。答えとその理由を、何も見ずに自分の言葉で説明してください。'),
-      api.difficulty === 'easy' && q.hint ? h('div', { class: 'hint-box' }, h('span', { class: 'point-label' }, 'ヒント'), h('span', { html: format(q.hint) })) : null,
       input,
       answerBox,
       actionBar);
@@ -76,7 +76,7 @@ StudyApp.registerMode({
 
     function buildPrompt(mine) {
       return [
-        '学習アプリ「' + api.theme.title + '」で、次の問題に選択肢なしで答える練習をしています。',
+        '学習アプリ「' + api.job.title + '」で、次の問題に選択肢なしで答える練習をしています。',
         '',
         '【問題】',
         v.question,
