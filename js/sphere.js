@@ -27,7 +27,11 @@
 
   function s(tag, attrs, ...children) {
     const el = document.createElementNS(NS, tag);
-    for (const [k, v] of Object.entries(attrs || {})) if (v != null) el.setAttribute(k, v);
+    for (const [k, v] of Object.entries(attrs || {})) {
+      if (v == null) continue;
+      // style 属性は CSP（style-src 'self'）で止まるため、CSSOM 経由で設定する
+      if (k === 'style') el.style.cssText = v; else el.setAttribute(k, v);
+    }
     for (const c of children.flat()) if (c != null) el.append(c);
     return el;
   }

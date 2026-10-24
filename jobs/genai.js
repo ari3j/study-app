@@ -1,11 +1,11 @@
-// ジョブプラグイン: 生成AI
+// ジョブプラグイン: GenAIマスター（生成AI）
 // アビリティ = 下位テーマ。type はアビリティの系統（theory / apply / operate / build。表示名は js/sphere.js の TYPES）。
 // group は分類名（表示のみ）。同じ group のアビリティは定義順に1本の道でつながり、前のアビリティを覚えると次が開く。
 // requires は他の道の前提アビリティ。
 // cells はマス（1マス = 10問のチャレンジ）。すべてのマスをクリアすると、アビリティのマス（20問）に挑戦できる。
 StudyApp.registerJob({
   id: 'genai',
-  title: '生成AI',
+  title: 'GenAIマスター',
   tier: 'basic',
   description: '生成AIのしくみを知り、使いこなし、組み込み、安全に運用する',
   abilities: [

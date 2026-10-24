@@ -52,15 +52,52 @@
   }
 
   // ---- 永続化 ----
-  function emptyData() { return { version: 2, cards: {}, activity: {} }; }
+  function emptyData() { return { version: 2, cards: {}, activity: {}, sphere: {} }; }
+
+  // ---- 保存データの検証 ----
+  // 保存データとバックアップは外部から書き換えられうる（同じ origin の別ページ、手で作られたファイルなど）。
+  // そのまま使わず、既知の形だけを読み取って作り直し、想定外のキー・型・値は捨てる。
+  // 保存領域（state）を増やすときは、ここにも検証を追加すること
+  const KEY_RE = /^[A-Za-z0-9_:./-]{1,100}$/;
+  const FORBIDDEN_KEYS = new Set(['__proto__', 'constructor', 'prototype']);
+  const GRADES = new Set(['confident', 'unsure', 'wrong']);
+  const MAX_PROFICIENCY = 5;
+  const MAX_ENTRIES = 20000;
+  const MAX_IMPORT_CHARS = 5000000;
+
+  const isObj = (v) => v !== null && typeof v === 'object' && !Array.isArray(v);
+  const isCount = (v) => Number.isSafeInteger(v) && v >= 0;
+  const safeEntries = (obj) => (isObj(obj) ? Object.keys(obj).filter((k) => KEY_RE.test(k) && !FORBIDDEN_KEYS.has(k)).slice(0, MAX_ENTRIES).map((k) => [k, obj[k]]) : []);
+
+  function sanitize(raw) {
+    const out = emptyData();
+    if (!isObj(raw) || raw.version !== 2) return out;
+    for (const [deck, cards] of safeEntries(raw.cards)) {
+      const clean = {};
+      for (const [qid, c] of safeEntries(cards)) {
+        if (!isObj(c) || !isCount(c.correct) || !isCount(c.wrong)) continue;
+        clean[qid] = { correct: c.correct, wrong: c.wrong };
+        if (isCount(c.last)) clean[qid].last = c.last;
+        if (GRADES.has(c.lastGrade)) clean[qid].lastGrade = c.lastGrade;
+      }
+      out.cards[deck] = clean;
+    }
+    for (const [day, n] of safeEntries(raw.activity)) {
+      if (/^\d{4}-\d{2}-\d{2}$/.test(day) && isCount(n)) out.activity[day] = n;
+    }
+    for (const [jobId, st] of safeEntries(raw.sphere)) {
+      if (!isObj(st) || !isCount(st.proficiency) || st.proficiency > MAX_PROFICIENCY) continue;
+      const cleared = {};
+      for (const [k, t] of safeEntries(st.cleared)) if (isCount(t)) cleared[k] = t;
+      out.sphere[jobId] = { proficiency: st.proficiency, cleared };
+    }
+    return out;
+  }
 
   function load() {
     try {
       const raw = localStorage.getItem(STORAGE_KEY);
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed.version === 2) return Object.assign(emptyData(), parsed);
-      }
+      if (raw) return sanitize(JSON.parse(raw));
     } catch (e) { console.error(e); }
     return emptyData();
   }
@@ -73,14 +110,16 @@
 
   function exportData() { return JSON.stringify(data, null, 2); }
 
+  // バックアップは JSON としてだけ読み、検証したデータだけを取り込む（コードとして実行することはない）
   function importData(text) {
+    if (text.length > MAX_IMPORT_CHARS) throw new Error('ファイルが大きすぎます');
     const parsed = JSON.parse(text);
-    if (!parsed || parsed.version !== 2 || typeof parsed.cards !== 'object') throw new Error('対応していないバックアップ形式です');
-    data = Object.assign(emptyData(), parsed);
+    if (!isObj(parsed) || parsed.version !== 2 || !isObj(parsed.cards)) throw new Error('対応していないバックアップ形式です');
+    data = sanitize(parsed);
     save();
   }
 
-  // 拡張機能（sphere.js など）用の保存領域
+  // 拡張機能（sphere.js など）用の保存領域。読み込み時に検証される既知のキー（sanitize 参照）だけを使う
   function state(key) { return data[key] || (data[key] = {}); }
 
   // ---- 日付 ----

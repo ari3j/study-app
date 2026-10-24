@@ -523,3 +523,11 @@ body.rush::after {
 .sg-node.req-src .core { stroke: #ffd43b; stroke-width: 4; }
 .sg-node.req-src .halo { fill: #ffd43b; opacity: .55; animation: sg-pulse 1.4s ease-in-out infinite; }
 .sg-node.req-src .lbl-ability { fill: #ffe066; }
+
+/* ---- ページ下部とセキュリティの説明 ---- */
+.page-footer { margin-top: 24px; padding-top: 12px; border-top: 1px solid var(--border); text-align: center; }
+.link-btn { border: 0; background: transparent; color: var(--primary); font-size: .9rem; padding: 10px 16px; cursor: pointer; text-decoration: underline; }
+.doc-section { padding: 14px 16px; margin-top: 12px; }
+.doc-section h2 { margin: 0 0 6px; font-size: 1rem; }
+.doc-section ul { margin: 0; padding-left: 1.2em; }
+.doc-section li { margin-bottom: 6px; font-size: .92rem; }
