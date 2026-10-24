@@ -382,3 +382,102 @@ code {
   .stats-row.four .stat-value { font-size: 1.15rem; }
   .stats-row.four .small { font-size: .72rem; }
 }
+
+/* ---- ゲーム要素 ---- */
+.hero-title { display: flex; align-items: baseline; gap: 8px; margin-bottom: 10px; }
+.stats-row.three { grid-template-columns: repeat(3, 1fr); }
+.stats-row.three .stat { padding: 10px 4px; }
+.stats-row.three .stat-value { font-size: 1.4rem; }
+.medal-stat { cursor: pointer; font: inherit; color: inherit; }
+.medal-stat:hover { border-color: var(--primary); }
+.diff-desc { margin: -4px 0 0; }
+
+.medal-icon {
+  display: inline-block;
+  width: .8em;
+  height: .8em;
+  margin-right: .25em;
+  border-radius: 50%;
+  vertical-align: -.05em;
+  background: radial-gradient(circle at 35% 30%, #fff6c2 0 18%, #f2c230 40%, #b8860b 100%);
+  box-shadow: inset 0 0 0 .08em rgba(120, 80, 0, .45);
+}
+.medal-icon.big { width: 1em; height: 1em; }
+.medal-hero { padding: 20px 16px; text-align: center; }
+.medal-count { font-size: 2.4rem; font-weight: 800; line-height: 1.2; }
+.result-medal { margin-top: 12px; font-weight: 700; }
+
+.shop-row { cursor: default; }
+.shop-row:hover { background: transparent; }
+.shop-row .btn:disabled { opacity: .45; cursor: default; }
+.icon-btn.small { width: 36px; height: 36px; font-size: 1.2rem; color: var(--muted); }
+.add-row { gap: 8px; }
+.text-input {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  font-size: 16px;
+  color: inherit;
+  padding: 8px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  background: var(--surface);
+}
+.cost-input { flex: none; width: 64px; }
+
+.stars { color: var(--warn); background: var(--warn-bg); letter-spacing: 1px; }
+.multi-tag { margin-bottom: 8px; }
+.hint-box { margin: -6px 0 16px; padding: 10px 12px; border-radius: 12px; background: var(--warn-bg); }
+.choice.is-selected { border-color: var(--primary); }
+.choice.is-selected .choice-label { background: var(--primary); color: var(--primary-text); }
+.choice.is-missed { border-color: var(--warn); border-style: dashed; background: var(--warn-bg); }
+.choice.is-missed .choice-label { background: var(--warn); color: var(--surface); }
+
+/* RPG 風メッセージウィンドウ */
+.toast {
+  position: fixed;
+  left: 50%;
+  bottom: calc(96px + env(safe-area-inset-bottom));
+  z-index: 100;
+  transform: translateX(-50%);
+  max-width: min(92vw, 480px);
+  padding: 14px 22px;
+  background: #0b0b14;
+  color: #fff;
+  border: 3px solid #fff;
+  outline: 2px solid #0b0b14;
+  border-radius: 10px;
+  font-weight: 700;
+  letter-spacing: .05em;
+  box-shadow: 0 6px 24px rgba(0, 0, 0, .35);
+  animation: toast-in .25s ease-out;
+}
+.toast.out { opacity: 0; transition: opacity .5s; }
+@keyframes toast-in { from { opacity: 0; transform: translate(-50%, 12px); } }
+
+/* ---- 画面カラー（メダル交換所の景品） ---- */
+body.skin-forest {
+  --bg: #eef5e9; --surface: #ffffff; --surface-2: #e1ecd8; --text: #1f2a1c; --muted: #5b6b55; --border: #cfdcc4;
+  --primary: #3f7d36; --primary-text: #ffffff; --ok: #2b8a3e; --ok-bg: #e3f6e6; --ng: #c92a2a; --ng-bg: #fdecec;
+  --warn: #a35a00; --warn-bg: #fff1dc; --shadow: 0 1px 2px rgba(0, 0, 0, .05);
+}
+body.skin-night {
+  --bg: #0f1430; --surface: #1a2147; --surface-2: #263066; --text: #f1f1f7; --muted: #a9b0d6; --border: #34408a;
+  --primary: #f5c542; --primary-text: #1a1a1a; --ok: #6ee08a; --ok-bg: #173a2a; --ng: #ff7b7b; --ng-bg: #3d1a24;
+  --warn: #ffc266; --warn-bg: #3b2e14; --shadow: none;
+}
+body.skin-sky {
+  --bg: #eaf4ff; --surface: #ffffff; --surface-2: #dcebfb; --text: #142233; --muted: #536579; --border: #c7dbf0;
+  --primary: #2f7fd8; --primary-text: #ffffff; --ok: #2b8a3e; --ok-bg: #e6f7ea; --ng: #c92a2a; --ng-bg: #fdecec;
+  --warn: #a35a00; --warn-bg: #fff3e0; --shadow: 0 1px 2px rgba(0, 0, 0, .05);
+}
+body.skin-volcano {
+  --bg: #1c0f0d; --surface: #2a1714; --surface-2: #3a201b; --text: #fbe9e4; --muted: #c9a59b; --border: #4d2a23;
+  --primary: #ff7a3d; --primary-text: #1c0f0d; --ok: #7fe08f; --ok-bg: #1d3320; --ng: #ff6b6b; --ng-bg: #401a1a;
+  --warn: #ffc35c; --warn-bg: #3d2a12; --shadow: none;
+}
+body.skin-gold {
+  --bg: #fbf6e6; --surface: #fffdf6; --surface-2: #f3ead0; --text: #2b230e; --muted: #6f6340; --border: #e6d9ad;
+  --primary: #b8860b; --primary-text: #ffffff; --ok: #2b8a3e; --ok-bg: #e9f6e2; --ng: #c92a2a; --ng-bg: #fcece6;
+  --warn: #9a5a00; --warn-bg: #fbedd2; --shadow: 0 1px 2px rgba(0, 0, 0, .06);
+}

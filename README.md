@@ -17,6 +17,7 @@ plugins.js            読み込むプラグインの一覧（追加時はここ�
 css/style.css
 js/core.js            プラグイン登録・保存・間隔反復・出題選定
 js/app.js             画面とセッション進行
+js/game.js            難易度・メダル・景品交換
 modes/quiz4.js        学習方法プラグイン: 4択（Lv1）
 modes/explain.js      学習方法プラグイン: 説明（Lv2）
 themes/*.js           学習テーマプラグイン
@@ -47,6 +48,14 @@ StudyApp.registerTheme({
       answer: 0,               // 正解の index。表示時は毎回シャッフルされる
       explanations: ['各選択肢がなぜ正しい/誤りか', '', '', ''],
       point: '覚えるべき要点（1文）',
+      difficulty: 2,           // ★1〜3。メダルの出やすさに影響
+      hint: '楽ちんプレイで表示するヒント（答えは書かない）',
+      hard: {                  // いばらの道で出題する高難度版（すべて選べ形式）
+        question: '長めの状況設定つきの問題文',
+        choices: ['記述0', '記述1', '記述2', '記述3', '記述4'],
+        answers: [0, 2],       // 選ぶべき記述の index（複数）
+        explanations: ['各記述の解説', '', '', '', ''],
+      },
     },
   ],
 });
@@ -69,6 +78,7 @@ StudyApp.registerMode({
   render(el, q, api) {
     // el に問題を描画する。StudyApp.ui.h / StudyApp.util.format が使える
     // api.theme          出題中のテーマ
+    // api.difficulty     冒険の難易度 'easy' | 'normal' | 'hard'
     // api.onKey(fn)      キーボード操作のハンドラを登録
     // StudyApp.ui.shareToAI(text, button)  外部 AI チャットへ渡す（スマホは共有シート、PC はコピー）
     // api.finish(grade)  回答完了。grade は 'confident' | 'unsure' | 'wrong'
@@ -87,6 +97,18 @@ StudyApp.registerMode({
 | 3〜5 | 使える / 判断できる / 設計・改善できる | そのレベルの実践課題をすべて完了 |
 
 下のレベルから順に判定する。「習得」は確信ありの正解を間隔を空けて4回重ねた状態。
+
+## ゲーム要素（js/game.js）
+
+| 冒険の難易度 | 内容 | メダル倍率 |
+|---|---|---|
+| 楽ちんプレイ | 毎回ヒントを表示 | ×0.5 |
+| バッチリ冒険 | 通常 | ×1.0 |
+| いばらの道 | `hard` 版を「すべて選べ」形式で出題 | ×0.7 |
+
+- 小さなメダル: セッション内の初回の正解で抽選。基本確率は ★1: 12% / ★2: 20% / ★3: 32%。一度正解したことがある問題は ×0.3
+- メダル交換所: 称号・画面カラー（画面上の景品）と、自分で登録するリアルのごほうび
+- 確率や景品は `js/game.js` 冒頭の定数で調整する
 
 ## 組み込んでいる学習法
 

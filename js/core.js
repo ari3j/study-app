@@ -81,6 +81,9 @@
     save();
   }
 
+  // 拡張機能（game.js など）用の保存領域
+  function state(key) { return data[key] || (data[key] = {}); }
+
   function getPref(key) { return data.prefs[key]; }
   function setPref(key, value) { data.prefs[key] = value; save(); }
 
@@ -233,7 +236,7 @@
     registerTheme, registerMode, boot, themes, modes,
     record, getCard, themeStats, buildSession, streak, todayCount,
     isPracticeDone, togglePractice, themeLevel,
-    exportData, importData, resetTheme, getPref, setPref,
+    exportData, importData, resetTheme, getPref, setPref, state, save,
     util: { shuffle, escapeHtml, format, dayKey },
     MASTERED_BOX, SESSION_SIZE, LEVEL_NAMES,
   };

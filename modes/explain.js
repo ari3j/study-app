@@ -7,9 +7,13 @@ StudyApp.registerMode({
   supports: (q) => q.type === 'choice' && Array.isArray(q.choices),
 
   render(el, q, api) {
-    const { h } = StudyApp.ui;
+    const { h, append } = StudyApp.ui;
     const { format } = StudyApp.util;
-    const exps = q.explanations || [];
+    const multi = api.difficulty === 'hard' && !!q.hard;
+    const v = multi
+      ? { question: q.hard.question, choices: q.hard.choices, answers: q.hard.answers, explanations: q.hard.explanations || [] }
+      : { question: q.question, choices: q.choices, answers: [q.answer], explanations: q.explanations || [] };
+    const exps = v.explanations;
     let revealed = false;
 
     const input = h('textarea', { class: 'explain-input', rows: '4', placeholder: '答えと、なぜそうなのかを書く（頭の中で説明するだけでもよい）' });
@@ -21,9 +25,12 @@ StudyApp.registerMode({
       if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); reveal(); }
     });
 
-    el.append(
-      h('div', { class: 'q-text', html: format(q.question) }),
-      h('p', { class: 'small muted' }, '選択肢は出ません。答えとその理由を、何も見ずに自分の言葉で説明してください。'),
+    append(el,
+      h('div', { class: 'q-text', html: format(v.question) }),
+      h('p', { class: 'small muted' }, multi
+        ? '選択肢は出ません。当てはまるものを自分で考え、できるだけ多く理由とともに挙げてください。'
+        : '選択肢は出ません。答えとその理由を、何も見ずに自分の言葉で説明してください。'),
+      api.difficulty === 'easy' && q.hint ? h('div', { class: 'hint-box' }, h('span', { class: 'point-label' }, 'ヒント'), h('span', { html: format(q.hint) })) : null,
       input,
       answerBox,
       actionBar);
@@ -33,16 +40,19 @@ StudyApp.registerMode({
       revealed = true;
       input.readOnly = true;
       const mine = input.value.trim();
-      const others = q.choices.map((c, i) => ({ c, e: exps[i], i })).filter((x) => x.i !== q.answer);
+      const all = v.choices.map((c, i) => ({ c, e: exps[i], i }));
+      const rights = all.filter((x) => v.answers.includes(x.i));
+      const others = all.filter((x) => !v.answers.includes(x.i));
 
       const askBtn = h('button', { class: 'btn small-btn', onclick: () => StudyApp.ui.shareToAI(buildPrompt(mine), askBtn) },
         mine ? 'AI に添削してもらう' : 'AI に質問する');
 
       answerBox.className = 'model-answer';
-      answerBox.append(
+      append(answerBox,
         h('div', { class: 'model-label' }, '模範解答'),
-        h('div', { class: 'model-main', html: format(q.choices[q.answer]) }),
-        exps[q.answer] ? h('div', { class: 'model-reason', html: format(exps[q.answer]) }) : null,
+        rights.map((x) => [
+          h('div', { class: 'model-main', html: format(x.c) }),
+          x.e ? h('div', { class: 'model-reason', html: format(x.e) }) : null]),
         q.point ? h('div', { class: 'feedback-point' }, h('span', { class: 'point-label' }, 'ポイント'), h('span', { html: format(q.point) })) : null,
         h('details', { class: 'model-others' },
           h('summary', null, 'よくある誤った考え方'),
@@ -69,10 +79,10 @@ StudyApp.registerMode({
         '学習アプリ「' + api.theme.title + '」で、次の問題に選択肢なしで答える練習をしています。',
         '',
         '【問題】',
-        q.question,
+        v.question,
         '',
-        '【模範解答】' + q.choices[q.answer],
-        exps[q.answer] ? '【理由】' + exps[q.answer] : '',
+        '【模範解答】',
+        ...v.answers.map((i) => '・' + v.choices[i] + (exps[i] ? '（' + exps[i] + '）' : '')),
         q.point ? '【ポイント】' + q.point : '',
         '',
         mine ? '【私の説明】\n' + mine : '',
